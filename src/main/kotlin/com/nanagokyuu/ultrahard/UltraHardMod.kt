@@ -9,10 +9,14 @@ object UltraHardMod : ModInitializer {
 	val LOGGER = LoggerFactory.getLogger(MOD_ID)
 
 	override fun onInitialize() {
-		UltraHardGameRules.init()
-		UltraHardCommands.register()
+		val ultra = UltraHardDifficulties.ULTRAHARD
 		UltraHardEvents.register()
-		LOGGER.info("Ultra Hard (超困难) initialized")
+		LOGGER.info(
+			"Ultra Hard initialized as Difficulty.{} (id={}, key={})",
+			ultra.name,
+			ultra.id,
+			ultra.serializedName,
+		)
 	}
 
 	fun id(path: String): Identifier = Identifier.fromNamespaceAndPath(MOD_ID, path)

@@ -1,0 +1,4 @@
+classTweaker	v2	official
+
+# Add Ultra Hard as a real Difficulty enum constant (id/key provided by mixin ctor)
+extend-enum	net/minecraft/world/Difficulty	ULTRAHARD

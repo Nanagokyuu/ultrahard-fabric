@@ -11,6 +11,10 @@ base {
 	archivesName = 'ultrahard'
 }
 
+loom {
+	accessWidenerPath = file("src/main/resources/ultrahard.classtweaker")
+}
+
 repositories {
 	mavenCentral()
 }

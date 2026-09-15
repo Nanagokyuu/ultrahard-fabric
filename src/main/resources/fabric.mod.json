@@ -3,7 +3,7 @@
 	"id": "ultrahard",
 	"version": "${version}",
 	"name": "Ultra Hard",
-	"description": "超困难模式：无自然回血、饥饿加速、敌对生物与玩家攻击皆为一击必杀。",
+	"description": "Adds Ultra Hard difficulty (based on Hard): no natural regen, faster hunger, one-hit kills.",
 	"authors": [
 		"Nanagokyuu"
 	],
@@ -30,5 +30,6 @@
 		"java": ">=25",
 		"fabric-api": "*",
 		"fabric-language-kotlin": ">=1.13.12+kotlin.2.4.0"
-	}
+	},
+	"accessWidener": "ultrahard.classtweaker"
 }

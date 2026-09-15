@@ -1,8 +1,4 @@
 {
-	"ultrahard.ultraHard": "Ultra Hard",
-	"gamerule.ultrahard.ultraHard": "Enables Ultra Hard: no natural regen, faster hunger, one-hit kills",
-	"command.ultrahard.enabled": "Ultra Hard is now ON",
-	"command.ultrahard.disabled": "Ultra Hard is now OFF",
-	"command.ultrahard.status.on": "Ultra Hard status: ON",
-	"command.ultrahard.status.off": "Ultra Hard status: OFF"
+	"options.difficulty.ultrahard": "Ultra Hard",
+	"options.difficulty.ultrahard.info": "Based on Hard, plus: no natural regen, faster hunger, hostile and player attacks one-shot."
 }

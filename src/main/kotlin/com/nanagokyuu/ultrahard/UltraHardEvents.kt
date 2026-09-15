@@ -18,7 +18,7 @@ object UltraHardEvents {
 			}
 
 			val level = entity.level()
-			if (level !is ServerLevel || !UltraHardGameRules.isEnabled(level)) {
+			if (level !is ServerLevel || !UltraHardDifficulties.isUltraHard(level)) {
 				return@register true
 			}
 
