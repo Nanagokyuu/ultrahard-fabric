@@ -1,0 +1,8 @@
+{
+	"ultrahard.ultraHard": "超困难",
+	"gamerule.ultrahard.ultraHard": "启用超困难：无自然回血、饥饿加快、一击必杀",
+	"command.ultrahard.enabled": "超困难模式已开启",
+	"command.ultrahard.disabled": "超困难模式已关闭",
+	"command.ultrahard.status.on": "超困难状态：开启",
+	"command.ultrahard.status.off": "超困难状态：关闭"
+}
