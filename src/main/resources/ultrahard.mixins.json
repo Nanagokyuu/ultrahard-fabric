@@ -19,7 +19,8 @@
 		"WitherSkullHardMixin",
 		"BeeHardMixin",
 		"LightningBoltHardMixin",
-		"RaidMixin"
+		"RaidMixin",
+		"LivingEntityTotemMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -1,4 +1,4 @@
 {
 	"options.difficulty.ultrahard": "超困难",
-	"options.difficulty.ultrahard.info": "基于困难，额外：无自然回血、饥饿加快、普通敌人攻击反伤、特殊攻击反弹双倍伤害、玩家攻击造成5倍伤害。"
+	"options.difficulty.ultrahard.info": "基于困难，额外：无自然回血、饥饿加快、普通敌人攻击反伤、特殊攻击反弹双倍伤害、玩家攻击造成5倍伤害；不死图腾触发后必定消耗。"
 }

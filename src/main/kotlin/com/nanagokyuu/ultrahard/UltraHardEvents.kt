@@ -73,7 +73,7 @@ object UltraHardEvents {
 	): Boolean {
 		return player.isUsingItem &&
 			player.getUseItem().item is ShieldItem &&
-			!source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_SHIELD)
+			!source.`is`(net.minecraft.tags.DamageTypeTags.BYPASSES_SHIELD)
 	}
 
 	private fun oneShot(
@@ -88,9 +88,24 @@ object UltraHardEvents {
 		} finally {
 			bypassCustomDamage.remove()
 		}
+		// Totem may have triggered inside hurtServer; ensure it is gone, then finish the kill.
+		clearDeathProtectionItems(entity)
 		if (entity.isAlive) {
 			entity.setHealth(0f)
 			entity.die(source)
+		}
+	}
+
+	private fun clearDeathProtectionItems(entity: LivingEntity) {
+		for (hand in net.minecraft.world.InteractionHand.entries) {
+			val stack = entity.getItemInHand(hand)
+			if (stack.isEmpty) continue
+			val hasProtection =
+				stack.has(net.minecraft.core.component.DataComponents.DEATH_PROTECTION) ||
+					stack.`is`(net.minecraft.world.item.Items.TOTEM_OF_UNDYING)
+			if (hasProtection) {
+				entity.setItemInHand(hand, net.minecraft.world.item.ItemStack.EMPTY)
+			}
 		}
 	}
 
