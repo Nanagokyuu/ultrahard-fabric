@@ -7,13 +7,18 @@ import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.monster.Enemy
 import net.minecraft.world.entity.monster.Monster
+import net.minecraft.world.entity.monster.ElderGuardian
+import net.minecraft.world.entity.boss.enderdragon.EnderDragon
+import net.minecraft.world.entity.boss.wither.WitherBoss
+import net.minecraft.world.entity.monster.warden.Warden
+import net.minecraft.world.item.ShieldItem
 
 object UltraHardEvents {
-	private val bypassOneShot = ThreadLocal.withInitial { false }
+	private val bypassCustomDamage = ThreadLocal.withInitial { false }
 
 	fun register() {
-		ServerLivingEntityEvents.ALLOW_DAMAGE.register { entity, source, _amount ->
-			if (bypassOneShot.get()) {
+		ServerLivingEntityEvents.ALLOW_DAMAGE.register { entity, source, amount ->
+			if (bypassCustomDamage.get()) {
 				return@register true
 			}
 
@@ -24,15 +29,26 @@ object UltraHardEvents {
 
 			val attacker = source.entity
 
-			// Hostile mob damage instantly kills the player
+			// Shields are handled by vanilla first, including their durability damage.
 			if (entity is ServerPlayer && isHostile(attacker)) {
-				oneShot(entity, level, source)
-				return@register false
+				if (isBlockingWithShield(entity, source)) {
+					return@register true
+				}
+				if (attacker is LivingEntity) {
+					if (isSpecialHostile(attacker)) {
+						reflectDamage(attacker, level, source, amount * 2.0f)
+						return@register true
+					} else {
+						oneShot(attacker, level, source)
+						return@register false
+					}
+				}
+				return@register true
 			}
 
-			// Ultra Hard player attacks any LivingEntity -> one-shot kill
+			// Preserve vanilla attack calculation, but apply a five-fold damage multiplier.
 			if (attacker is ServerPlayer && entity !== attacker) {
-				oneShot(entity, level, source)
+				multiplyPlayerDamage(entity, level, source, amount)
 				return@register false
 			}
 
@@ -44,20 +60,67 @@ object UltraHardEvents {
 		return entity is Enemy || entity is Monster
 	}
 
+	private fun isSpecialHostile(attacker: Entity?): Boolean {
+		return attacker is EnderDragon ||
+			attacker is WitherBoss ||
+			attacker is Warden ||
+			attacker is ElderGuardian
+	}
+
+	private fun isBlockingWithShield(
+		player: ServerPlayer,
+		source: net.minecraft.world.damagesource.DamageSource,
+	): Boolean {
+		return player.isUsingItem &&
+			player.getUseItem().item is ShieldItem &&
+			!source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_SHIELD)
+	}
+
 	private fun oneShot(
 		entity: LivingEntity,
 		level: ServerLevel,
 		source: net.minecraft.world.damagesource.DamageSource,
 	) {
 		if (!entity.isAlive) return
-		bypassOneShot.set(true)
+		bypassCustomDamage.set(true)
 		try {
 			entity.hurtServer(level, source, Float.MAX_VALUE)
 		} finally {
-			bypassOneShot.set(false)
+			bypassCustomDamage.remove()
 		}
 		if (entity.isAlive) {
-			entity.kill(level)
+			entity.setHealth(0f)
+			entity.die(source)
+		}
+	}
+
+	private fun reflectDamage(
+		entity: LivingEntity,
+		level: ServerLevel,
+		source: net.minecraft.world.damagesource.DamageSource,
+		amount: Float,
+	) {
+		if (!entity.isAlive) return
+		bypassCustomDamage.set(true)
+		try {
+			entity.hurtServer(level, source, amount)
+		} finally {
+			bypassCustomDamage.remove()
+		}
+	}
+
+	private fun multiplyPlayerDamage(
+		entity: LivingEntity,
+		level: ServerLevel,
+		source: net.minecraft.world.damagesource.DamageSource,
+		amount: Float,
+	) {
+		if (!entity.isAlive) return
+		bypassCustomDamage.set(true)
+		try {
+			entity.hurtServer(level, source, amount * UltraHardDifficulties.PLAYER_ATTACK_DAMAGE_MULTIPLIER)
+		} finally {
+			bypassCustomDamage.remove()
 		}
 	}
 }

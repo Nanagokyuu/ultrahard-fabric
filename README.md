@@ -7,7 +7,7 @@
 请一并安装：
 
 - [Fabric Loader](https://fabricmc.net/use/) ≥ 0.19.5
-- [Fabric API](https://modrinth.com/mod/fabric-api)（`0.160.0+26.2` 或同版本兼容构建）
+- [Fabric API](https://modrinth.com/mod/fabric-api)（`0.160.0+26.2` 或更高的 26.2 兼容版本）
 - [Fabric Language Kotlin](https://modrinth.com/mod/fabric-language-kotlin) ≥ `1.13.12+kotlin.2.4.0`
 - Java 25+
 
@@ -54,8 +54,10 @@
 1. **基于困难**：原版 Hard 相关行为均生效（僵尸增援、蜘蛛增益、饥饿致死、袭击波次等）。
 2. **无自然回血**：取消饱食度/饱和度带来的自然恢复（类似 `naturalRegeneration false`）；药水等其它治疗仍可用。
 3. **饥饿加快 50%**：玩家饥饿值消耗（exhaustion）× 1.5。
-4. **敌对生物一击必杀**：来自 `Monster` / `Enemy` 的伤害会立刻击杀玩家。
-5. **玩家攻击一击必杀**：该难度下玩家对任意 `LivingEntity` 的攻击会一击必杀。
+4. **敌对生物反伤**：普通 `Monster` / `Enemy` 攻击玩家时，会将攻击反射回敌人并直接秒杀敌人。
+5. **特殊攻击与不死图腾**：末影龙、凋零、坚守者、远古守卫者的攻击会正常伤害玩家，并将本次伤害的 2 倍反射给攻击者；不死图腾可以按原版机制抵御一次死亡。普通敌人的攻击会被反向秒杀，不会消耗图腾。
+6. **盾牌**：举盾可以正常格挡伤害，但盾牌最大耐久固定为 10。
+7. **玩家攻击强化**：该难度下玩家对任意 `LivingEntity` 的攻击伤害为原版计算结果的 5 倍，仍会正常计算护甲、盾牌和其他减伤效果。
 
 ## 版本信息
 

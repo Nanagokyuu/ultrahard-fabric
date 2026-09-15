@@ -1,4 +1,4 @@
 {
 	"options.difficulty.ultrahard": "Ultra Hard",
-	"options.difficulty.ultrahard.info": "Based on Hard, plus: no natural regen, faster hunger, hostile and player attacks one-shot."
+	"options.difficulty.ultrahard.info": "Based on Hard, plus: no natural regen, faster hunger, hostile attacks are reflected, special attacks reflect double damage, and player attacks deal 5x damage."
 }

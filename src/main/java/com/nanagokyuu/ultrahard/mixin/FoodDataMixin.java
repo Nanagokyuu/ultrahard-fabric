@@ -1,6 +1,7 @@
 package com.nanagokyuu.ultrahard.mixin;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.sugar.Local;
 import com.nanagokyuu.ultrahard.UltraHardDifficulties;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Difficulty;
@@ -27,6 +28,25 @@ public abstract class FoodDataMixin {
 			return;
 		}
 		player.heal(amount);
+	}
+
+	@Redirect(
+			method = "tick",
+			at = @At(
+					value = "INVOKE",
+					target = "Lnet/minecraft/world/food/FoodData;addExhaustion(F)V"
+			)
+	)
+	private void ultrahard$cancelNaturalRegenExhaustion(
+			FoodData foodData,
+			float amount,
+			@Local(argsOnly = true) ServerPlayer player
+	) {
+		// The two calls in FoodData.tick belong to natural-regeneration branches.
+		// Preventing them keeps saturation intact when regeneration is disabled.
+		if (!UltraHardDifficulties.isUltraHard(player.level())) {
+			foodData.addExhaustion(amount);
+		}
 	}
 
 	/**

@@ -11,12 +11,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Raid.class)
 public abstract class RaidMixin {
 	/** Vanilla Hard returns 7 groups; switch on ordinal would MatchException for ULTRAHARD. */
-	private static final int HARD_NUM_GROUPS = 7;
-
 	@Inject(method = "getNumGroups", at = @At("HEAD"), cancellable = true)
 	private void ultrahard$hardGroups(Difficulty difficulty, CallbackInfoReturnable<Integer> cir) {
 		if (UltraHardDifficulties.isUltraHard(difficulty)) {
-			cir.setReturnValue(HARD_NUM_GROUPS);
+			cir.setReturnValue(UltraHardDifficulties.RAID_GROUPS);
 		}
 	}
 }

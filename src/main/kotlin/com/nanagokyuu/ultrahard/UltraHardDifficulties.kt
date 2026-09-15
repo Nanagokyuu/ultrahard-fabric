@@ -8,6 +8,11 @@ import net.minecraft.world.level.Level
  * and Hard-compatible vanilla checks.
  */
 object UltraHardDifficulties {
+	const val HUNGER_EXHAUSTION_MULTIPLIER = 1.5f
+	const val PLAYER_ATTACK_DAMAGE_MULTIPLIER = 5.0f
+	const val SHIELD_MAX_DURABILITY = 10
+	const val RAID_GROUPS = 7
+
 	/** Same instance as [Difficulty.ULTRAHARD] after enum extension. */
 	@JvmField
 	val ULTRAHARD: Difficulty = Difficulty.ULTRAHARD
