@@ -56,10 +56,7 @@ object UltraHardEvents {
 			}
 
 			val attacker = source.entity
-			if (isHostile(entity) && isHostile(attacker)) {
-				// 直接取消伤害，避免原版受击逻辑将仇恨转移到误伤者身上。
-				return@register false
-			}
+			// 敌对生物之间允许保留原版互伤；是否产生仇恨由 Mob 的目标设置拦截统一处理。
 
 			// Boss 保持原版伤害；其他敌对生物的伤害按受击玩家的装备进度提升。
 			if (entity is ServerPlayer && isHostile(attacker) && !isBoss(attacker)) {

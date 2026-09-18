@@ -6,9 +6,15 @@ import com.nanagokyuu.ultrahard.UltraHardDifficulties;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.monster.EnderMan;
 import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton;
+import net.minecraft.world.entity.monster.illager.Evoker;
+import net.minecraft.world.entity.monster.illager.Pillager;
+import net.minecraft.world.entity.monster.illager.Vindicator;
 import net.minecraft.world.entity.monster.spider.Spider;
+import net.minecraft.world.entity.monster.Ravager;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -38,6 +44,46 @@ public abstract class MobHardMixin {
 		UltraHardAi.tickUndeadShelter(self);
 		if (self instanceof AbstractSkeleton skeleton) {
 			UltraHardAi.tickSkeleton(skeleton);
+		}
+		if (self instanceof Vindicator vindicator) {
+			// 灾厄近战单位优先从侧后方接近举盾玩家。
+			UltraHardAi.tickVindicator(vindicator);
+		} else if (self instanceof Pillager pillager) {
+			// 掠夺者优先寻找侧后方射击位置，避免正面浪费弩箭。
+			UltraHardAi.tickPillager(pillager);
+		} else if (self instanceof Ravager ravager) {
+			// 劫掠兽使用更宽的绕行半径，配合其他袭击单位制造夹击。
+			UltraHardAi.tickRavager(ravager);
+		} else if (self instanceof Evoker evoker) {
+			// 唤魔者从侧后方施法，迫使玩家不断转身。
+			UltraHardAi.tickEvoker(evoker);
+		}
+	}
+
+	@Inject(method = "doHurtTarget", at = @At("HEAD"), cancellable = true)
+	private void ultrahard$flankShieldedMelee(
+			ServerLevel level,
+			Entity target,
+			CallbackInfoReturnable<Boolean> cir
+	) {
+		Mob self = (Mob) (Object) this;
+		// 近战攻击落在盾牌正面时取消本次攻击，并让怪物重新寻找突破角度。
+		if (!UltraHardDifficulties.isUltraHard(level) || !UltraHardAi.shouldCancelShieldedMelee(self, target)) return;
+		if (self instanceof EnderMan enderman) {
+			// 末影人不使用普通寻路绕行，而是瞬移到玩家的视线盲区。
+			UltraHardAi.tickEnderman(enderman);
+		} else {
+			UltraHardAi.flankShield(self, (net.minecraft.world.entity.LivingEntity) target, 3.0, 1.2);
+		}
+		cir.setReturnValue(false);
+	}
+
+	@Inject(method = "setTarget", at = @At("HEAD"), cancellable = true)
+	private void ultrahard$ignoreHostileRetaliation(LivingEntity target, CallbackInfo ci) {
+		Mob self = (Mob) (Object) this;
+		// 附近有玩家时，敌对生物可以互相造成伤害，但不能因误伤而互相锁定仇恨。
+		if (target != null && UltraHardAi.shouldIgnoreHostileRetaliation(self, target)) {
+			ci.cancel();
 		}
 	}
 

@@ -43,6 +43,7 @@ data class UltraHardConfig(
 	val eighthWaveEnchantedGoldenAppleChance: Float = 0.5f,
 	val damageCapParticleCount: Int = 8,
 	val aiUpdateIntervalTicks: Int = 10,
+	val hostileRetaliationSuppressionRadius: Double = 32.0,
 	val zombieCoordinationRadius: Double = 10.0,
 	val zombieFlankDistance: Double = 2.5,
 	val zombieFrontDistance: Double = 2.0,
