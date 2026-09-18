@@ -6,9 +6,10 @@
 		"DifficultyMixin",
 		"DifficultyInstanceMixin",
 		"FoodDataMixin",
-		"ShieldDurabilityMixin",
+		"ToolArmorDurabilityMixin",
 		"PlayerUltraHardMixin",
 		"MobHardMixin",
+		"MobArmorSpawnMixin",
 		"ZombieHardMixin",
 		"SpiderHardMixin",
 		"CaveSpiderHardMixin",
@@ -19,8 +20,7 @@
 		"WitherSkullHardMixin",
 		"BeeHardMixin",
 		"LightningBoltHardMixin",
-		"RaidMixin",
-		"LivingEntityTotemMixin"
+		"RaidMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

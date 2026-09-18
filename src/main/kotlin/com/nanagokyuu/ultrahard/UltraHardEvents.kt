@@ -1,20 +1,26 @@
 package com.nanagokyuu.ultrahard
 
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents
+import net.minecraft.core.registries.Registries
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.monster.Enemy
 import net.minecraft.world.entity.monster.Monster
-import net.minecraft.world.entity.monster.ElderGuardian
-import net.minecraft.world.entity.boss.enderdragon.EnderDragon
-import net.minecraft.world.entity.boss.wither.WitherBoss
-import net.minecraft.world.entity.monster.warden.Warden
-import net.minecraft.world.item.ShieldItem
+import net.minecraft.world.item.enchantment.EnchantmentHelper
+import kotlin.math.round
+import java.util.UUID
 
 object UltraHardEvents {
 	private val bypassCustomDamage = ThreadLocal.withInitial { false }
+	private val lifestealStates = HashMap<UUID, LifestealState>()
+
+	private data class LifestealState(
+		var pendingHealing: Int = 0,
+		var lastTriggerTick: Long = Long.MIN_VALUE,
+	)
 
 	fun register() {
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register { entity, source, amount ->
@@ -29,30 +35,43 @@ object UltraHardEvents {
 
 			val attacker = source.entity
 
-			// Shields are handled by vanilla first, including their durability damage.
+			// Preserve vanilla Hard damage calculation, but double hostile damage.
 			if (entity is ServerPlayer && isHostile(attacker)) {
-				if (isBlockingWithShield(entity, source)) {
-					return@register true
-				}
-				if (attacker is LivingEntity) {
-					if (isSpecialHostile(attacker)) {
-						reflectDamage(attacker, level, source, amount * 2.0f)
-						return@register true
-					} else {
-						oneShot(attacker, level, source)
-						return@register false
-					}
-				}
-				return@register true
+				applyDamage(entity, level, source, amount * UltraHardDifficulties.ENEMY_DAMAGE_MULTIPLIER)
+				return@register false
 			}
 
-			// Preserve vanilla attack calculation, but apply a five-fold damage multiplier.
+			// Keep vanilla player damage, but cap each hit at 25% of max health.
 			if (attacker is ServerPlayer && entity !== attacker) {
-				multiplyPlayerDamage(entity, level, source, amount)
+				val cappedAmount = minOf(
+					amount * UltraHardDifficulties.PLAYER_ATTACK_DAMAGE_MULTIPLIER,
+					entity.maxHealth * UltraHardDifficulties.MAX_ATTACK_DAMAGE_FRACTION,
+				)
+				val healthBefore = entity.health
+				val absorptionBefore = entity.absorptionAmount
+				if (applyDamage(entity, level, source, cappedAmount)) {
+					val healthDamage = (healthBefore - entity.health).coerceAtLeast(0.0f)
+					val absorptionDamage = (absorptionBefore - entity.absorptionAmount).coerceAtLeast(0.0f)
+					queueLifesteal(attacker, level, healthDamage + absorptionDamage)
+				}
 				return@register false
 			}
 
 			true
+		}
+
+		ServerTickEvents.END_SERVER_TICK.register { server ->
+			val currentTick = server.overworld().gameTime
+			for (player in server.playerList.players) {
+				val state = lifestealStates[player.uuid] ?: continue
+				if (state.pendingHealing <= 0) continue
+				if (state.lastTriggerTick != Long.MIN_VALUE && currentTick - state.lastTriggerTick < 20L) continue
+
+				player.heal(state.pendingHealing.toFloat())
+				state.pendingHealing = 0
+				state.lastTriggerTick = currentTick
+			}
+			lifestealStates.keys.removeIf { uuid -> server.playerList.getPlayer(uuid) == null }
 		}
 	}
 
@@ -60,82 +79,37 @@ object UltraHardEvents {
 		return entity is Enemy || entity is Monster
 	}
 
-	private fun isSpecialHostile(attacker: Entity?): Boolean {
-		return attacker is EnderDragon ||
-			attacker is WitherBoss ||
-			attacker is Warden ||
-			attacker is ElderGuardian
-	}
-
-	private fun isBlockingWithShield(
-		player: ServerPlayer,
+	private fun applyDamage(
+		entity: LivingEntity,
+		level: ServerLevel,
 		source: net.minecraft.world.damagesource.DamageSource,
+		amount: Float,
 	): Boolean {
-		return player.isUsingItem &&
-			player.getUseItem().item is ShieldItem &&
-			!source.`is`(net.minecraft.tags.DamageTypeTags.BYPASSES_SHIELD)
-	}
-
-	private fun oneShot(
-		entity: LivingEntity,
-		level: ServerLevel,
-		source: net.minecraft.world.damagesource.DamageSource,
-	) {
-		if (!entity.isAlive) return
+		if (!entity.isAlive) return false
 		bypassCustomDamage.set(true)
 		try {
-			entity.hurtServer(level, source, Float.MAX_VALUE)
-		} finally {
-			bypassCustomDamage.remove()
-		}
-		// Totem may have triggered inside hurtServer; ensure it is gone, then finish the kill.
-		clearDeathProtectionItems(entity)
-		if (entity.isAlive) {
-			entity.setHealth(0f)
-			entity.die(source)
-		}
-	}
-
-	private fun clearDeathProtectionItems(entity: LivingEntity) {
-		for (hand in net.minecraft.world.InteractionHand.entries) {
-			val stack = entity.getItemInHand(hand)
-			if (stack.isEmpty) continue
-			val hasProtection =
-				stack.has(net.minecraft.core.component.DataComponents.DEATH_PROTECTION) ||
-					stack.`is`(net.minecraft.world.item.Items.TOTEM_OF_UNDYING)
-			if (hasProtection) {
-				entity.setItemInHand(hand, net.minecraft.world.item.ItemStack.EMPTY)
-			}
-		}
-	}
-
-	private fun reflectDamage(
-		entity: LivingEntity,
-		level: ServerLevel,
-		source: net.minecraft.world.damagesource.DamageSource,
-		amount: Float,
-	) {
-		if (!entity.isAlive) return
-		bypassCustomDamage.set(true)
-		try {
-			entity.hurtServer(level, source, amount)
+			return entity.hurtServer(level, source, amount)
 		} finally {
 			bypassCustomDamage.remove()
 		}
 	}
 
-	private fun multiplyPlayerDamage(
-		entity: LivingEntity,
-		level: ServerLevel,
-		source: net.minecraft.world.damagesource.DamageSource,
-		amount: Float,
-	) {
-		if (!entity.isAlive) return
-		bypassCustomDamage.set(true)
-		try {
-			entity.hurtServer(level, source, amount * UltraHardDifficulties.PLAYER_ATTACK_DAMAGE_MULTIPLIER)
-		} finally {
-			bypassCustomDamage.remove()
+	private fun queueLifesteal(player: ServerPlayer, level: ServerLevel, damage: Float) {
+		if (damage <= 0.0f) return
+
+		val enchantment = level.registryAccess()
+			.lookupOrThrow(Registries.ENCHANTMENT)
+			.getOrThrow(UltraHardEnchantments.LIFESTEAL)
+		val levelValue = EnchantmentHelper.getItemEnchantmentLevel(enchantment, player.mainHandItem)
+		if (levelValue <= 0) return
+
+		val healingRatio = when {
+			levelValue >= 9 -> 1.0f
+			else -> 0.1f * (levelValue + 1)
 		}
+		val healing = round(damage * healingRatio).toInt().coerceAtLeast(1)
+		val state = lifestealStates.getOrPut(player.uuid) { LifestealState() }
+		state.pendingHealing = maxOf(state.pendingHealing, healing)
 	}
+
 }

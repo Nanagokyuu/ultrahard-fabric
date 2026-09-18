@@ -1,4 +1,5 @@
 {
+	"enchantment.ultrahard.lifesteal": "吸血",
 	"options.difficulty.ultrahard": "超困难",
-	"options.difficulty.ultrahard.info": "基于困难，额外：无自然回血、饥饿加快、普通敌人攻击反伤、特殊攻击反弹双倍伤害、玩家攻击造成5倍伤害；不死图腾触发后必定消耗。"
+	"options.difficulty.ultrahard.info": "基于困难，额外：无自然回血、饥饿加快、敌人伤害翻倍、玩家每次攻击最多造成目标最大生命25%的伤害、非金制工具和盔甲耐久消耗翻倍。"
 }

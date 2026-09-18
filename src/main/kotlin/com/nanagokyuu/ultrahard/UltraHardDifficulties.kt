@@ -9,8 +9,10 @@ import net.minecraft.world.level.Level
  */
 object UltraHardDifficulties {
 	const val HUNGER_EXHAUSTION_MULTIPLIER = 1.5f
-	const val PLAYER_ATTACK_DAMAGE_MULTIPLIER = 5.0f
-	const val SHIELD_MAX_DURABILITY = 10
+	const val PLAYER_ATTACK_DAMAGE_MULTIPLIER = 1.0f
+	const val MAX_ATTACK_DAMAGE_FRACTION = 0.25f
+	const val ENEMY_DAMAGE_MULTIPLIER = 2.0f
+	const val DURABILITY_DAMAGE_MULTIPLIER = 2
 	const val RAID_GROUPS = 7
 
 	/** Same instance as [Difficulty.ULTRAHARD] after enum extension. */
