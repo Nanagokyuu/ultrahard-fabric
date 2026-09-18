@@ -15,18 +15,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(ServerPlayer.class)
 public abstract class ServerPlayerStateMixin implements UltraHardPlayerState {
-	/** 以下字段会写入玩家存档，用于让装备阶段和规则书状态跨重登保留。 */
-	@Unique private boolean ultrahard$ironMilestone;
-	@Unique private boolean ultrahard$diamondMilestone;
+	/** 禁止跳夜日期持久化，防止通过重登或重生绕过重伤休息限制。 */
+	@Unique private long ultrahard$sleepBlockedDay = Long.MIN_VALUE;
 	@Unique private long ultrahard$lastFoodTick = Long.MIN_VALUE;
 	@Unique private long ultrahard$lastSleepHealingDay = Long.MIN_VALUE;
 	@Unique private boolean ultrahard$receivedRulesBook;
 
 	@Inject(method = "readAdditionalSaveData", at = @At("TAIL"))
 	private void ultrahard$readState(ValueInput input, CallbackInfo ci) {
-		// 新键不继承旧材料进度，避免曾捡过铁锭/钻石的旧存档直接触发护甲阶段。
-		ultrahard$ironMilestone = input.getBooleanOr("UltraHardIronArmorMilestone", false);
-		ultrahard$diamondMilestone = input.getBooleanOr("UltraHardDiamondArmorMilestone", false);
+		// 旧护甲里程碑不再读取，装备倍率始终按当前穿戴情况实时计算。
+		ultrahard$sleepBlockedDay = input.getLongOr("UltraHardSleepBlockedCalendarDay", Long.MIN_VALUE);
 		ultrahard$lastFoodTick = input.getLongOr("UltraHardLastFoodTick", Long.MIN_VALUE);
 		// 旧值使用 gameTime，不能与新的昼夜日期混用。
 		ultrahard$lastSleepHealingDay = input.getLongOr("UltraHardLastSleepHealingCalendarDay", Long.MIN_VALUE);
@@ -35,17 +33,14 @@ public abstract class ServerPlayerStateMixin implements UltraHardPlayerState {
 
 	@Inject(method = "addAdditionalSaveData", at = @At("TAIL"))
 	private void ultrahard$writeState(ValueOutput output, CallbackInfo ci) {
-		output.putBoolean("UltraHardIronArmorMilestone", ultrahard$ironMilestone);
-		output.putBoolean("UltraHardDiamondArmorMilestone", ultrahard$diamondMilestone);
+		output.putLong("UltraHardSleepBlockedCalendarDay", ultrahard$sleepBlockedDay);
 		output.putLong("UltraHardLastFoodTick", ultrahard$lastFoodTick);
 		output.putLong("UltraHardLastSleepHealingCalendarDay", ultrahard$lastSleepHealingDay);
 		output.putBoolean("UltraHardReceivedRulesBook", ultrahard$receivedRulesBook);
 	}
 
-	@Override public boolean ultrahardHasIronMilestone() { return ultrahard$ironMilestone; }
-	@Override public void ultrahardSetIronMilestone(boolean value) { ultrahard$ironMilestone = value; }
-	@Override public boolean ultrahardHasDiamondMilestone() { return ultrahard$diamondMilestone; }
-	@Override public void ultrahardSetDiamondMilestone(boolean value) { ultrahard$diamondMilestone = value; }
+	@Override public long ultrahardGetSleepBlockedDay() { return ultrahard$sleepBlockedDay; }
+	@Override public void ultrahardSetSleepBlockedDay(long value) { ultrahard$sleepBlockedDay = value; }
 	@Override public long ultrahardGetLastFoodTick() { return ultrahard$lastFoodTick; }
 	@Override public void ultrahardSetLastFoodTick(long value) { ultrahard$lastFoodTick = value; }
 	@Override public long ultrahardGetLastSleepHealingDay() { return ultrahard$lastSleepHealingDay; }

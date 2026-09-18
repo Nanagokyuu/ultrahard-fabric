@@ -7,13 +7,13 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.entity.Mob
 import net.minecraft.world.entity.boss.enderdragon.EnderDragon
 import net.minecraft.world.entity.boss.wither.WitherBoss
 import net.minecraft.world.entity.monster.Enemy
 import net.minecraft.world.entity.monster.Monster
 import net.minecraft.world.entity.monster.warden.Warden
 import net.minecraft.world.entity.player.Player
-import net.minecraft.world.item.Items
 import net.minecraft.world.item.enchantment.EnchantmentHelper
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.network.chat.Component
@@ -21,8 +21,8 @@ import kotlin.math.floor
 import java.util.UUID
 
 /**
- * 通过服务端事件协调伤害、吸血、护甲进度和睡眠规则。
- * 护甲进度及每日治疗记录通过 UltraHardPlayerState 持久化；
+ * 通过服务端事件协调伤害、吸血、当前装备和睡眠规则。
+ * 每日治疗及重伤禁跳夜记录通过 UltraHardPlayerState 持久化；
  * 本次睡眠快照和待结算吸血仅保存在内存中，不作为玩家存档的一部分。
  */
 object UltraHardEvents {
@@ -35,7 +35,7 @@ object UltraHardEvents {
 
 	private data class LifestealState(
 		/** 同一 tick 内多次命中只保留最高一次回血量。 */
-		var pendingHealing: Int = 0,
+		var pendingHealing: Float = 0.0f,
 		/** 上次实际治疗发生的服务器 tick，而不是上次攻击发生的 tick。 */
 		var lastTriggerTick: Long = Long.MIN_VALUE,
 	)
@@ -64,9 +64,9 @@ object UltraHardEvents {
 			val attacker = source.entity
 			// 敌对生物之间允许保留原版互伤；是否产生仇恨由 Mob 的目标设置拦截统一处理。
 
-			// Boss 保持原版伤害；其他敌对生物的伤害按受击玩家的装备进度提升。
+			// Boss 保持原版伤害；每次受击都重新读取护甲槽，换装立即生效。
 			if (entity is ServerPlayer && isHostile(attacker) && !isBoss(attacker)) {
-				val multiplier = enemyDamageMultiplier(entity)
+				val multiplier = UltraHardEquipment.enemyDamageMultiplier(entity)
 				if (multiplier == 1.0f) return@register true
 				applyDamage(entity, level, source, amount * multiplier)
 				return@register false
@@ -80,6 +80,8 @@ object UltraHardEvents {
 				if (applyDamage(entity, level, source, cappedAmount)) {
 					val healthDamage = (healthBefore - entity.health).coerceAtLeast(0.0f)
 					val absorptionDamage = (absorptionBefore - entity.absorptionAmount).coerceAtLeast(0.0f)
+					// 近战和玩家投射物都按最终实际伤害积累仇恨；不改变吸血的触发规则。
+					if (entity is Mob) UltraHardAi.recordPlayerDamage(entity, attacker, healthDamage + absorptionDamage)
 					queueLifesteal(attacker, level, source, healthDamage + absorptionDamage)
 					if (cappedAmount < amount) {
 						spawnDamageCapParticles(level, entity)
@@ -101,7 +103,7 @@ object UltraHardEvents {
 					sleepStates.remove(player.uuid)
 					continue
 				}
-				updatePlayerProgress(player, currentTick)
+				initializeFoodClock(player, currentTick)
 				updateSleepState(player)
 				healSleepingPlayer(player)
 
@@ -116,8 +118,8 @@ object UltraHardEvents {
 				if (state.lastTriggerTick != Long.MIN_VALUE && currentTick - state.lastTriggerTick < UltraHardConfigs.values.lifestealCooldownTicks) continue
 
 				val healing = state.pendingHealing
-				player.heal(healing.toFloat())
-				state.pendingHealing = 0
+				player.heal(healing)
+				state.pendingHealing = 0.0f
 				state.lastTriggerTick = currentTick
 			}
 			lifestealStates.keys.removeIf { uuid -> server.playerList.getPlayer(uuid) == null }
@@ -148,13 +150,12 @@ object UltraHardEvents {
 		}
 	}
 
-	/** 玩家实体被替换时复制长期记录，避免重生后护甲阶段、进食时间和规则书领取状态丢失。 */
+	/** 重生仍保留当日休息限制，不能用死亡刷新治疗次数或跳夜资格。 */
 	@JvmStatic
 	fun copyPlayerState(oldPlayer: ServerPlayer, newPlayer: ServerPlayer) {
 		val oldState = oldPlayer as UltraHardPlayerState
 		val newState = newPlayer as UltraHardPlayerState
-		newState.ultrahardSetIronMilestone(oldState.ultrahardHasIronMilestone())
-		newState.ultrahardSetDiamondMilestone(oldState.ultrahardHasDiamondMilestone())
+		newState.ultrahardSetSleepBlockedDay(oldState.ultrahardGetSleepBlockedDay())
 		newState.ultrahardSetLastFoodTick(oldState.ultrahardGetLastFoodTick())
 		newState.ultrahardSetLastSleepHealingDay(oldState.ultrahardGetLastSleepHealingDay())
 		newState.ultrahardSetReceivedRulesBook(oldState.ultrahardHasReceivedRulesBook())
@@ -166,16 +167,6 @@ object UltraHardEvents {
 
 	private fun isBoss(entity: Entity?): Boolean =
 		entity is EnderDragon || entity is WitherBoss || entity is Warden
-
-	private fun enemyDamageMultiplier(player: ServerPlayer): Float {
-		val state = player as UltraHardPlayerState
-		// 钻石阶段独立于铁阶段，玩家只要获得过任意钻石盔甲即可直接进入最高倍率。
-		return when {
-			state.ultrahardHasDiamondMilestone() -> UltraHardConfigs.values.enemyDamageAfterDiamondMultiplier
-			state.ultrahardHasIronMilestone() -> UltraHardConfigs.values.enemyDamageAfterIronMultiplier
-			else -> UltraHardConfigs.values.enemyDamageBaseMultiplier
-		}
-	}
 
 	/**
 	 * 软上限基于目标最大生命值，而非当前剩余生命值。
@@ -227,8 +218,8 @@ object UltraHardEvents {
 			levelValue >= UltraHardConfigs.values.lifestealMaximumRatioLevel -> UltraHardConfigs.values.lifestealMaximumRatio
 			else -> UltraHardConfigs.values.lifestealBaseRatio * (levelValue + 1)
 		}
-		val healing = floor(damage * healingRatio).toInt()
-			.coerceAtLeast(UltraHardConfigs.values.lifestealMinimumHealing)
+		// 按实际伤害保留小数治疗，不取整，也不设置最低一血保底。
+		val healing = damage * healingRatio
 		val state = lifestealStates.getOrPut(player.uuid) { LifestealState() }
 		val currentTick = level.gameTime
 		// 冷却期间的攻击不进入 pendingHealing，冷却结束后也不会补算。
@@ -237,25 +228,8 @@ object UltraHardEvents {
 		state.pendingHealing = maxOf(state.pendingHealing, healing)
 	}
 
-	private fun updatePlayerProgress(player: ServerPlayer, currentTick: Long) {
-		if (!UltraHardDifficulties.isUltraHard(player.level())) return
+	private fun initializeFoodClock(player: ServerPlayer, currentTick: Long) {
 		val state = player as UltraHardPlayerState
-		val inventory = player.inventory
-		// 只比较物品类型，附魔、已损耗以及穿在身上的护甲也算获得过。
-		if (!state.ultrahardHasIronMilestone() && inventory.contains { stack ->
-			!stack.isEmpty && (stack.`is`(Items.IRON_HELMET) || stack.`is`(Items.IRON_CHESTPLATE)
-				|| stack.`is`(Items.IRON_LEGGINGS) || stack.`is`(Items.IRON_BOOTS))
-		}) {
-			state.ultrahardSetIronMilestone(true)
-			player.sendOverlayMessage(Component.literal("已获得铁盔甲：敌对生物伤害提高至 ${UltraHardConfigs.values.enemyDamageAfterIronMultiplier} 倍。"))
-		}
-		if (!state.ultrahardHasDiamondMilestone() && inventory.contains { stack ->
-			!stack.isEmpty && (stack.`is`(Items.DIAMOND_HELMET) || stack.`is`(Items.DIAMOND_CHESTPLATE)
-				|| stack.`is`(Items.DIAMOND_LEGGINGS) || stack.`is`(Items.DIAMOND_BOOTS))
-		}) {
-			state.ultrahardSetDiamondMilestone(true)
-			player.sendOverlayMessage(Component.literal("已获得钻石盔甲：敌对生物伤害提高至 ${UltraHardConfigs.values.enemyDamageAfterDiamondMultiplier} 倍。"))
-		}
 		if (state.ultrahardGetLastFoodTick() == Long.MIN_VALUE) {
 			state.ultrahardSetLastFoodTick(currentTick)
 		}
@@ -267,11 +241,16 @@ object UltraHardEvents {
 			sleepStates.remove(player.uuid)
 			return
 		}
-		if (sleepStates.containsKey(player.uuid)) return
-		// 只在检测到“刚开始睡眠”的第一个服务端 tick 建立快照。
+		// 跨日仍躺在床上时也刷新快照，避免旧日期影响新一天的治疗。
 		val day = Math.floorDiv(player.level().overworldClockTime, TICKS_PER_DAY)
+		if (sleepStates[player.uuid]?.calendarDay == day) return
 		sleepStates[player.uuid] = SleepState(player.health, day)
-		player.sendOverlayMessage(Component.literal("已入睡，连续睡满 5 秒后结算今日睡眠治疗。"))
+		// 误触床不会影响全服；重伤限制在睡满五秒并首次领取当日治疗时生效。
+		player.sendOverlayMessage(Component.literal(when {
+			UltraHardRestState.isBlocked(player.level()) -> UltraHardRestState.BLOCKED_MESSAGE
+			player.health < SLEEP_SKIP_HEALTH_THRESHOLD -> "重伤休息：睡满 5 秒领取治疗后，今夜将无法跳过。"
+			else -> "已入睡，连续睡满 5 秒后结算今日睡眠治疗。"
+		}))
 	}
 
 	@JvmStatic
@@ -286,6 +265,10 @@ object UltraHardEvents {
 
 		// 在跳夜之前结算并记录旧日期，避免起床后漏治疗或占用次日的次数。
 		state.ultrahardSetLastSleepHealingDay(day)
+		if (sleepState.healthWhenSleepStarted < SLEEP_SKIP_HEALTH_THRESHOLD) {
+			state.ultrahardSetSleepBlockedDay(day)
+			UltraHardRestState.blockTonight(player.level())
+		}
 		// 入睡前达到阈值时回满，否则只给固定治疗，并由 canSkipNight 拒绝跳夜。
 		val healing = if (sleepState.healthWhenSleepStarted >= SLEEP_SKIP_HEALTH_THRESHOLD) {
 			player.maxHealth - player.health
@@ -296,17 +279,23 @@ object UltraHardEvents {
 		if (!sleepState.healingReported) {
 			sleepState.healingReported = true
 			player.sendOverlayMessage(
-				Component.literal(if (sleepState.healthWhenSleepStarted >= SLEEP_SKIP_HEALTH_THRESHOLD)
+				Component.literal(if (!UltraHardRestState.isBlocked(player.level()))
 					"睡眠治疗完成：生命值已回满，可以跳过夜晚。"
-				else "睡眠治疗完成：恢复 ${UltraHardConfigs.values.sleepHealingAmount} 点；入睡前生命值不足 10，不能跳过夜晚。"),
+				else UltraHardRestState.BLOCKED_MESSAGE),
 			)
 		}
 	}
 
-	/** 使用入睡时的血量决定跳夜资格，不能用本次睡眠治疗后的血量反向解锁资格。 */
+	/** 限制按昼夜日期保存；回血、离床、重登和死亡都不能清除当晚标记。 */
+	@JvmStatic
+	fun isSleepBlockedTonight(player: ServerPlayer): Boolean =
+		(player as UltraHardPlayerState).ultrahardGetSleepBlockedDay() == Math.floorDiv(player.level().overworldClockTime, TICKS_PER_DAY)
+
+	/** 除当晚重伤标记外，仍需满足连续睡眠时间和入睡血量条件。 */
 	@JvmStatic
 	fun canSkipNight(player: ServerPlayer): Boolean =
 		player.isAlive && player.isSleeping && player.sleepTimer >= SLEEP_HEALING_DELAY_TICKS
+			&& !isSleepBlockedTonight(player)
 			&& (sleepStates[player.uuid]?.healthWhenSleepStarted ?: 0.0f) >= SLEEP_SKIP_HEALTH_THRESHOLD
 
 	private fun spawnDamageCapParticles(level: ServerLevel, entity: LivingEntity) {

@@ -37,8 +37,29 @@ import java.util.UUID
 
 import com.nanagokyuu.ultrahard.UltraHardConfigs
 import com.nanagokyuu.ultrahard.UltraHardDifficulties
+import net.minecraft.world.level.pathfinder.Path
+import java.util.WeakHashMap
+import java.lang.ref.WeakReference
 /** 负责目标偏好、群体站位、盾牌绕行和近战接敌；不同兵种复用相同的水平几何规则。 */
 internal object CombatAi {
+	/** 弱引用键避免死亡或卸载的生物残留；三秒无进展后正面施压五秒。 */
+	private data class FlankState(
+		val targetId: UUID,
+		var startedAt: Long,
+		var checkedAt: Long = Long.MIN_VALUE,
+		var frontalUntil: Long = Long.MIN_VALUE,
+		var path: Path? = null,
+		var lastProgressAt: Long = startedAt,
+		var bestFacingDot: Double = 1.0,
+		var pressureUpdatedAt: Long = Long.MIN_VALUE,
+		var retreatRetryAt: Long = Long.MIN_VALUE,
+	)
+	private val flankStates = WeakHashMap<Mob, FlankState>()
+	private data class ZombieGroup(val tick: Long, val origin: Vec3, val members: List<WeakReference<Zombie>>)
+	private val zombieGroups = WeakHashMap<LivingEntity, ZombieGroup>()
+	private const val FLANK_TIMEOUT_TICKS = 60L
+	private const val FRONTAL_PRESSURE_TICKS = 100L
+
 	@JvmStatic
 	fun tickZombie(zombie: Zombie) {
 		val level = AiSupport.ultraHardLevel(zombie) ?: return
@@ -47,14 +68,18 @@ internal object CombatAi {
 		if (!target.isAlive) return
 
 		val config = UltraHardConfigs.values
-		val zombies = level.getEntities(
-			null,
-			target.boundingBox.inflate(config.zombieCoordinationRadius),
-		) { entity -> entity is Zombie && entity.target === target && entity.isAlive }
-			.filterIsInstance<Zombie>()
-			.plus(zombie)
-			.distinctBy { it.uuid }
-			.sortedBy { it.uuid }
+		// 同一目标周围的僵尸共享十刻编队快照，弱引用成员不会反向保留目标实体。
+		val now = level.gameTime
+		var group = zombieGroups[target]
+		if (group == null || now - group.tick >= 10L || now < group.tick || target.position().distanceToSqr(group.origin) >= 4.0) {
+			val members = level.getEntities(null, target.boundingBox.inflate(config.zombieCoordinationRadius)) {
+				it is Zombie && it.target === target && it.isAlive
+			}.filterIsInstance<Zombie>().sortedBy { it.uuid }.map { WeakReference(it) }
+			group = ZombieGroup(now, target.position(), members)
+			zombieGroups[target] = group
+		}
+		val zombies = group.members.mapNotNull { it.get() }.filter { it.isAlive && it.target === target && it.level() === level }
+			.let { members -> if (zombie in members) members else (members + zombie).sortedBy { it.uuid } }
 
 		// 按 UUID 排序后再分工，避免实体列表顺序变化导致僵尸每次更新都换位。
 		val facing = AiSupport.horizontalDirection(target.lookAngle)
@@ -72,24 +97,7 @@ internal object CombatAi {
 		}
 		// 前排从正面压迫，后排从背后或侧面接近；无武器僵尸主动给持武器者让位。
 		val direction = if (isFrontliner && !(zombie.mainHandItem.isEmpty && armedFrontlinerExists)) facing else facing.scale(-1.0)
-		AiSupport.moveTo(zombie, target.position().add(direction.scale(targetDistance)), config.zombieCoordinationSpeed)
-	}
-
-	@JvmStatic
-	fun prioritizeUnshieldedTarget(mob: Mob) {
-		val level = AiSupport.ultraHardLevel(mob) ?: return
-		if (!AiSupport.isHostile(mob)) return
-		val current = mob.target
-		val players = level.getEntities(mob, mob.boundingBox.inflate(32.0)) { entity ->
-			entity is ServerPlayer && entity.isAlive && !entity.isSpectator
-		}.filterIsInstance<ServerPlayer>()
-		// 只有在 32 格内找到更合适的无盾玩家时才切换目标，避免敌人频繁丢失原目标。
-		val unshielded = players.filterNot { it.isBlocking }.minByOrNull { it.distanceToSqr(mob) }
-		if (unshielded != null && (current !is ServerPlayer || current.isBlocking
-			|| unshielded.distanceToSqr(mob) < current.distanceToSqr(mob) * 0.8)) {
-			// 所有敌对生物共享同一套目标偏好：优先攻击没有举盾的玩家。
-			mob.target = unshielded
-		}
+		AiSupport.approachOrPressure(zombie, target.position().add(direction.scale(targetDistance)), config.zombieCoordinationSpeed)
 	}
 
 	/**
@@ -115,6 +123,8 @@ internal object CombatAi {
 			flankShield(skeleton, target)
 			return
 		}
+		// 远程单位恢复正面射击，但不因此放弃射程优势贴脸追击。
+		if (maintainFrontalPressure(skeleton, target)) return
 		if (target.distanceToSqr(skeleton) < UltraHardConfigs.values.skeletonMinimumDistance.let { it * it }) {
 			retreatSkeleton(skeleton, target)
 		}
@@ -122,34 +132,93 @@ internal object CombatAi {
 
 	@JvmStatic
 	fun shouldFlankShield(mob: Mob, target: LivingEntity): Boolean {
-		if (AiSupport.ultraHardLevel(mob) == null || target !is Player || !target.isBlocking) return false
+		val level = AiSupport.ultraHardLevel(mob) ?: return false
+		if (target !is Player || !target.isBlocking) {
+			flankStates.remove(mob)
+			return false
+		}
 		val relative = AiSupport.horizontalDirection(mob.position().subtract(target.position()))
-		// 玩家朝向向量与骷髅位置同向时表示骷髅在玩家前方，此时必须继续绕行。
-		return AiSupport.shieldFacing(target).dot(relative) >= -0.25
+		val facingDot = AiSupport.shieldFacing(target).dot(relative)
+		if (facingDot < -0.25) {
+			flankStates.remove(mob)
+			return false
+		}
+		val now = level.gameTime
+		val state = flankStates[mob]?.takeIf { it.targetId == target.uuid }
+			?: FlankState(target.uuid, now).also { flankStates[mob] = it }
+		if (now < state.frontalUntil) return false
+		if (state.frontalUntil != Long.MIN_VALUE) {
+			state.frontalUntil = Long.MIN_VALUE
+			state.startedAt = now
+			state.checkedAt = Long.MIN_VALUE
+			state.lastProgressAt = now
+			state.bestFacingDot = facingDot
+		}
+		// 向背面推进时允许继续绕行；三秒无进展或总计六秒仍未完成才回退。
+		if (facingDot < state.bestFacingDot - 0.1) {
+			state.bestFacingDot = facingDot
+			state.lastProgressAt = now
+		}
+		if (now - state.lastProgressAt >= FLANK_TIMEOUT_TICKS || now - state.startedAt >= FLANK_TIMEOUT_TICKS * 2) {
+			beginFrontalPressure(mob, target, state, now)
+			return false
+		}
+		// 多个攻击与导航注入共用检查结果，避免每 tick 重复搜索同一条路线。
+		if (state.checkedAt != Long.MIN_VALUE && now - state.checkedAt < UltraHardConfigs.values.aiUpdateIntervalTicks) {
+			return state.path != null
+		}
+		state.checkedAt = now
+		state.path = findFlankPath(mob, target)
+		if (state.path == null) beginFrontalPressure(mob, target, state, now)
+		return state.path != null
 	}
 
-	/**
-	 * 先尝试实体所在侧的绕行点，导航失败时尝试另一侧。
-	 * 仍在盾牌正前方时先横移，越过侧面后再向后方推进，避免路径直接穿过玩家。
-	 */
-	@JvmStatic
-	fun flankShield(mob: Mob, target: LivingEntity, radius: Double, speed: Double) {
-		if (!shouldFlankShield(mob, target)) return
+	private fun isFrontalPressureActive(mob: Mob): Boolean =
+		flankStates[mob]?.let { it.targetId == mob.target?.uuid && mob.level().gameTime < it.frontalUntil } == true
+
+	/** 路径不可达或绕行超时都恢复原版攻击，不再取消挥击、蓄力或引爆。 */
+	private fun beginFrontalPressure(mob: Mob, target: LivingEntity, state: FlankState, now: Long) {
+		state.path = null
+		state.frontalUntil = now + FRONTAL_PRESSURE_TICKS
+		state.retreatRetryAt = Long.MIN_VALUE
+		applyFrontalPressure(mob, target)
+	}
+
+	/** 按兵种体型确定绕行距离，并拒绝只能接近墙壁的部分路径。 */
+	private fun findFlankPath(mob: Mob, target: LivingEntity): Path? {
+		val radius = when (mob) {
+			is AbstractSkeleton -> maxOf(UltraHardConfigs.values.skeletonMinimumDistance + 1.0, UltraHardConfigs.values.skeletonRetreatDistance)
+			is Pillager -> 8.0
+			is Evoker -> 7.0
+			is Witch -> UltraHardConfigs.values.witchBacklineDistance
+			is Creeper -> UltraHardConfigs.values.creeperEvacuationDistance.coerceAtLeast(3.0)
+			is Ravager -> 4.0
+			is Silverfish, is Endermite -> 2.5
+			else -> 3.0
+		}
 		val facing = AiSupport.shieldFacing(target)
 		val left = Vec3(-facing.z, 0.0, facing.x)
 		val relative = mob.position().subtract(target.position())
-		val side = if (relative.dot(left) > 0.1) {
-			if (relative.dot(left) > 0.0) 1.0 else -1.0
-		} else if (mob.id % 2 == 0) 1.0 else -1.0
+		val side = if (relative.dot(left) >= 0.0) 1.0 else -1.0
 		for (direction in listOf(side, -side)) {
 			val waypoint = if (AiSupport.horizontalDirection(relative).dot(facing) > 0.25) {
 				left.scale(direction * radius)
-			} else {
-				facing.scale(-radius).add(left.scale(direction * radius * 0.5))
-			}
+			} else facing.scale(-radius).add(left.scale(direction * radius * 0.5))
 			val destination = target.position().add(waypoint)
-			if (mob.navigation.moveTo(destination.x, destination.y, destination.z, speed)) return
+			val offset = destination.subtract(mob.position())
+			if (!mob.level().noCollision(mob, mob.boundingBox.move(offset))) continue
+			val path = mob.navigation.createPath(BlockPos.containing(destination), 0)
+			if (path != null && path.canReach()) return path
 		}
+		return null
+	}
+
+	/** 只使用已经确认可达的路径；检查与执行共用按兵种计算的半径。 */
+	@JvmStatic
+	fun flankShield(mob: Mob, target: LivingEntity, speed: Double) {
+		if (!shouldFlankShield(mob, target)) return
+		val state = flankStates[mob] ?: return
+		if (!mob.navigation.moveTo(state.path, speed)) beginFrontalPressure(mob, target, state, mob.level().gameTime)
 	}
 
 	@JvmStatic
@@ -158,7 +227,7 @@ internal object CombatAi {
 		if (!AiSupport.shouldUpdate(spider)) return
 		val target = spider.target ?: return
 		if (shouldFlankShield(spider, target)) {
-			flankShield(spider, target, 3.0, 1.25)
+			flankShield(spider, target, 1.25)
 		} else if (!AiSupport.isBlockingTarget(target) && target.distanceToSqr(spider) > 9.0) {
 			AiSupport.ambushApproach(spider, target, 2.5, 1.25)
 		}
@@ -170,7 +239,7 @@ internal object CombatAi {
 		if (!AiSupport.shouldUpdate(vindicator)) return
 		val target = vindicator.target ?: return
 		if (shouldFlankShield(vindicator, target)) {
-			flankShield(vindicator, target, 3.0, 1.2)
+			flankShield(vindicator, target, 1.2)
 		} else if (!AiSupport.isBlockingTarget(target) && target.distanceToSqr(vindicator) > 6.25) {
 			AiSupport.ambushApproach(vindicator, target, 2.5, 1.2)
 		}
@@ -182,7 +251,7 @@ internal object CombatAi {
 		if (!AiSupport.shouldUpdate(ravager)) return
 		val target = ravager.target ?: return
 		if (shouldFlankShield(ravager, target)) {
-			flankShield(ravager, target, 4.0, 1.1)
+			flankShield(ravager, target, 1.1)
 		} else if (!AiSupport.isBlockingTarget(target) && target.distanceToSqr(ravager) > 16.0) {
 			AiSupport.ambushApproach(ravager, target, 3.5, 1.1)
 		}
@@ -230,7 +299,7 @@ internal object CombatAi {
 		val index = group.indexOf(silverfish).coerceAtLeast(0)
 		// 蠹虫保留少量正面牵制单位，其余单位从侧面和背后包围玩家。
 		if (shouldFlankShield(silverfish, target)) {
-			if (index > 0 || group.size == 1) flankShield(silverfish, target, 2.5, 1.3)
+			if (index > 0 || group.size == 1) flankShield(silverfish, target, 1.3)
 		} else if (!AiSupport.isBlockingTarget(target)) {
 			AiSupport.swarmApproach(silverfish, target, index, group.size, 2.5, 1.3)
 		}
@@ -242,7 +311,7 @@ internal object CombatAi {
 		val target = endermite.target ?: return
 		// 末影螨不瞬移，而是依靠高速侧移和频繁换位骚扰玩家。
 		if (shouldFlankShield(endermite, target)) {
-			flankShield(endermite, target, 2.5, 1.35)
+			flankShield(endermite, target, 1.35)
 		} else if (!AiSupport.isBlockingTarget(target)) {
 			AiSupport.ambushApproach(endermite, target, 2.0, 1.35)
 		}
@@ -270,6 +339,56 @@ internal object CombatAi {
 	internal fun flankShield(skeleton: AbstractSkeleton, target: LivingEntity) {
 		if (!shouldFlankShield(skeleton, target) || !AiSupport.shouldUpdate(skeleton)) return
 		val config = UltraHardConfigs.values
-		flankShield(skeleton, target, maxOf(config.skeletonMinimumDistance + 1.0, config.skeletonRetreatDistance), config.skeletonRetreatSpeed)
+		flankShield(skeleton, target, config.skeletonRetreatSpeed)
+	}
+
+	/** 返回是否已接管当次移动，供不同兵种避免用绕后或盲目后退覆盖正面施压。 */
+	internal fun maintainFrontalPressure(mob: Mob, target: LivingEntity): Boolean {
+		if (!isFrontalPressureActive(mob)) return false
+		applyFrontalPressure(mob, target)
+		return true
+	}
+
+	/** 近战直接逼近；远程在有效距离内停留射击，退路受阻时原地进攻。 */
+	private fun applyFrontalPressure(mob: Mob, target: LivingEntity) {
+		val state = flankStates[mob] ?: return
+		val now = mob.level().gameTime
+		if (state.pressureUpdatedAt == now) return
+		state.pressureUpdatedAt = now
+		if (!AiSupport.isRangedCombatant(mob)) {
+			mob.navigation.moveTo(target, 1.2)
+			return
+		}
+		val config = UltraHardConfigs.values
+		val minimum = when (mob) {
+			is AbstractSkeleton -> config.skeletonMinimumDistance
+			is Witch -> config.witchBacklineDistance
+			is Evoker -> 7.0
+			else -> 6.0
+		}
+		val distance = mob.distanceToSqr(target)
+		if (distance > (minimum + 4.0) * (minimum + 4.0) || !mob.sensing.hasLineOfSight(target)) {
+			mob.navigation.moveTo(target, 1.1)
+			return
+		}
+		if (distance < minimum * minimum) {
+			// 可用退路短期复用；无路可退后两秒再检查，避免墙角持续重复寻路。
+			if (now < state.retreatRetryAt) return
+			state.retreatRetryAt = now + 40L
+			val away = AiSupport.horizontalDirection(mob.position().subtract(target.position()))
+			val left = Vec3(-away.z, 0.0, away.x)
+			for (direction in listOf(away, away.add(left).normalize(), away.subtract(left).normalize())) {
+				val destination = mob.position().add(direction.scale(3.0))
+				if (!mob.level().noCollision(mob, mob.boundingBox.move(destination.subtract(mob.position())))) continue
+				val path = mob.navigation.createPath(BlockPos.containing(destination), 0)
+				if (path != null && path.canReach() && mob.navigation.moveTo(path, 1.1)) {
+					state.retreatRetryAt = now + 20L
+					return
+				}
+			}
+		}
+		// 只停止移动，不取消原版弓弩蓄力、药水投掷或施法。
+		mob.navigation.stop()
+		mob.lookControl.setLookAt(target, 30.0f, 30.0f)
 	}
 }

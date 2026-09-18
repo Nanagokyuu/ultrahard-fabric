@@ -22,7 +22,7 @@ public abstract class CaveSpiderHardMixin {
 		CaveSpider self = (CaveSpider) (Object) this;
 		// 洞穴蜘蛛覆盖了父类攻击方法，因此需要在这里单独阻止正面砍盾。
 		if (!UltraHardAi.shouldCancelShieldedMelee(self, target)) return;
-		UltraHardAi.flankShield(self, (net.minecraft.world.entity.LivingEntity) target, 3.0, 1.25);
+		UltraHardAi.flankShield(self, (net.minecraft.world.entity.LivingEntity) target, 1.25);
 		cir.setReturnValue(false);
 	}
 

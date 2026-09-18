@@ -44,33 +44,12 @@ import com.nanagokyuu.ultrahard.UltraHardDifficulties
 internal object RangedAi {
 	@JvmStatic
 	fun tickCreeperShield(creeper: Creeper) {
-		val level = AiSupport.ultraHardLevel(creeper) ?: return
+		AiSupport.ultraHardLevel(creeper) ?: return
 		if (!shouldFlankCreeperShield(creeper)) return
 		val target = creeper.target as Player
-
-		val toTarget = AiSupport.horizontalDirection(target.position().subtract(creeper.position()))
-		// 只有苦力怕确实朝向玩家时，举盾才会让它改变战术。
-		if (AiSupport.horizontalDirection(creeper.lookAngle).dot(toTarget) < 0.25) return
-		val playerToCreeper = toTarget.scale(-1.0)
-		val facing = AiSupport.shieldFacing(target)
-		if (facing.dot(playerToCreeper) < -0.25) return
-
-		// 在 tick 开始处重置引爆计时，避免本 tick 的原版爆炸逻辑继续执行。
+		// 只有可达且未超时的绕盾路线才暂停引爆；狭窄地形保留正面爆炸压力。
 		creeper.swellDir = -1
-		val config = UltraHardConfigs.values
-		val left = Vec3(-facing.z, 0.0, facing.x)
-		val radius = config.creeperEvacuationDistance.coerceAtLeast(3.0)
-		val behind = target.position().subtract(facing.scale(radius))
-		val relative = creeper.position().subtract(target.position())
-		val side = if (relative.dot(left) >= 0.0) 1.0 else -1.0
-		val candidates = listOf(
-			behind,
-			target.position().add(facing.scale(-radius * 0.7)).add(left.scale(side * radius * 0.7)),
-			target.position().add(facing.scale(-radius * 0.7)).add(left.scale(-side * radius * 0.7)),
-		)
-		for (destination in candidates) {
-			if (creeper.navigation.moveTo(destination.x, destination.y, destination.z, config.creeperEvacuationSpeed)) return
-		}
+		CombatAi.flankShield(creeper, target, UltraHardConfigs.values.creeperEvacuationSpeed)
 	}
 
 	@JvmStatic
@@ -82,8 +61,7 @@ internal object RangedAi {
 		val toTarget = AiSupport.horizontalDirection(target.position().subtract(creeper.position()))
 		// 只有苦力怕确实朝向玩家时，举盾才会让它改变战术。
 		if (AiSupport.horizontalDirection(creeper.lookAngle).dot(toTarget) < 0.25) return false
-		val playerToCreeper = toTarget.scale(-1.0)
-		return AiSupport.shieldFacing(target).dot(playerToCreeper) >= -0.25
+		return CombatAi.shouldFlankShield(creeper, target)
 	}
 
 	@JvmStatic
@@ -115,9 +93,10 @@ internal object RangedAi {
 		}
 
 		val player = witch.target as? ServerPlayer ?: return
+		if (CombatAi.maintainFrontalPressure(witch, player)) return
 		if (CombatAi.shouldFlankShield(witch, player)) {
 			witch.stopUsingItem()
-			CombatAi.flankShield(witch, player, config.witchBacklineDistance, config.witchRetreatSpeed)
+			CombatAi.flankShield(witch, player, config.witchRetreatSpeed)
 			return
 		}
 		if (player.distanceToSqr(witch) < config.witchBacklineDistance * config.witchBacklineDistance) {
@@ -131,7 +110,9 @@ internal object RangedAi {
 		val target = pillager.target ?: return
 		if (CombatAi.shouldFlankShield(pillager, target)) {
 			pillager.stopUsingItem()
-			CombatAi.flankShield(pillager, target, 8.0, 1.15)
+			CombatAi.flankShield(pillager, target, 1.15)
+		} else if (CombatAi.maintainFrontalPressure(pillager, target)) {
+			return
 		} else if (!AiSupport.isBlockingTarget(target) && target.distanceToSqr(pillager) < 36.0) {
 			AiSupport.ambushApproach(pillager, target, 8.0, 1.15)
 		}
@@ -141,7 +122,9 @@ internal object RangedAi {
 		if (!AiSupport.shouldUpdate(evoker)) return
 		val target = evoker.target ?: return
 		if (CombatAi.shouldFlankShield(evoker, target)) {
-			CombatAi.flankShield(evoker, target, 7.0, 1.1)
+			CombatAi.flankShield(evoker, target, 1.1)
+		} else if (CombatAi.maintainFrontalPressure(evoker, target)) {
+			return
 		} else if (!AiSupport.isBlockingTarget(target) && target.distanceToSqr(evoker) < 64.0) {
 			AiSupport.ambushApproach(evoker, target, 7.0, 1.1)
 		}

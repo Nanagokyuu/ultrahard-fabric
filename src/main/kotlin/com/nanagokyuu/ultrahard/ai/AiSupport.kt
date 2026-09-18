@@ -34,6 +34,7 @@ import net.minecraft.world.item.alchemy.PotionContents
 import net.minecraft.world.item.alchemy.Potions
 import net.minecraft.world.phys.Vec3
 import java.util.UUID
+import java.util.WeakHashMap
 
 import com.nanagokyuu.ultrahard.UltraHardConfigs
 import com.nanagokyuu.ultrahard.UltraHardDifficulties
@@ -44,6 +45,8 @@ import com.nanagokyuu.ultrahard.UltraHardDifficulties
  * 路径移动交给原版导航系统，计算出目标点不代表实体一定能够抵达。
  */
 internal object AiSupport {
+	private data class FailedApproach(val targetId: UUID, val origin: Vec3, val retryAt: Long)
+	private val failedApproaches = WeakHashMap<Mob, FailedApproach>()
 	/** 同一玩家两次被铺网的最短间隔；200 游戏刻在正常刻速下为 10 秒。 */
 	internal const val SPIDER_WEB_COOLDOWN_TICKS = 200L
 	/** 临时蛛网的存活时间；清理时仍需确认该位置目前是蛛网。 */
@@ -63,8 +66,13 @@ internal object AiSupport {
 		return level.takeIf(UltraHardDifficulties::isUltraHard)
 	}
 
-	/** 按实体存活刻数节流，而非每帧重算路径；配置中的更新间隔必须为正数。 */
-	internal fun shouldUpdate(mob: Mob): Boolean = mob.tickCount % UltraHardConfigs.values.aiUpdateIntervalTicks == 0
+	/** 混合实体编号错开同批生成怪物的更新时刻，避免搜索集中在同一帧。 */
+	internal fun shouldUpdate(mob: Mob): Boolean = isScheduled(mob, UltraHardConfigs.values.aiUpdateIntervalTicks)
+
+	internal fun isScheduled(mob: Mob, interval: Int): Boolean = Math.floorMod(mob.tickCount.toLong() + mob.id, interval.toLong()) == 0L
+
+	/** 本模组的远程兵种共享射距控制，近战单位仍直接接近玩家。 */
+	internal fun isRangedCombatant(mob: Mob): Boolean = mob is AbstractSkeleton || mob is Pillager || mob is Witch || mob is Evoker
 
 	internal fun isHostile(entity: Entity): Boolean = entity is Enemy || entity is Monster
 
@@ -73,6 +81,24 @@ internal object AiSupport {
 
 	internal fun moveTo(mob: Mob, destination: Vec3, speed: Double) {
 		mob.navigation.moveTo(destination.x, destination.y, destination.z, speed)
+	}
+
+	internal fun approachOrPressure(mob: Mob, destination: Vec3, speed: Double) {
+		// 失败后两秒内不重复搜索包抄点；换目标或移动超过两格可提前重试。
+		val target = mob.target ?: return
+		val now = mob.level().gameTime
+		val failed = failedApproaches[mob]
+		if (failed != null && failed.targetId == target.uuid && now < failed.retryAt && mob.position().distanceToSqr(failed.origin) < 4.0) {
+			mob.navigation.moveTo(target, speed)
+			return
+		}
+		val path = mob.navigation.createPath(BlockPos.containing(destination), 0)
+		if (path != null && path.canReach() && mob.navigation.moveTo(path, speed)) {
+			failedApproaches.remove(mob)
+			return
+		}
+		failedApproaches[mob] = FailedApproach(target.uuid, mob.position(), now + 40L)
+		mob.navigation.moveTo(target, speed)
 	}
 
 	/** 忽略高度差并归一化；水平向量接近零时使用固定方向，避免后续侧向计算退化。 */
@@ -97,7 +123,7 @@ internal object AiSupport {
 			val side = if (index % 2 == 0) 1.0 else -1.0
 			target.position().subtract(facing.scale(radius)).add(left.scale(side * radius * (0.5 + index / 3.0)))
 		}
-		mob.navigation.moveTo(destination.x, destination.y, destination.z, speed)
+		approachOrPressure(mob, destination, speed)
 	}
 
 	/** 检查三格竖直空气、落点流体、下方支撑和实体碰撞后尝试瞬移，返回是否实际成功。 */
@@ -116,6 +142,6 @@ internal object AiSupport {
 		val left = Vec3(-facing.z, 0.0, facing.x)
 		val side = if (mob.id % 2 == 0) 1.0 else -1.0
 		val destination = target.position().subtract(facing.scale(radius)).add(left.scale(side * radius * 0.45))
-		mob.navigation.moveTo(destination.x, destination.y, destination.z, speed)
+		approachOrPressure(mob, destination, speed)
 	}
 }

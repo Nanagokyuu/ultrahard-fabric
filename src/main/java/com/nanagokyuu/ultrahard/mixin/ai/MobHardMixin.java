@@ -43,7 +43,7 @@ public abstract class MobHardMixin {
 	private void ultrahard$seekDaytimeShelter(CallbackInfo ci) {
 		// 在通用 Mob AI 步骤末尾统一处理目标选择、亡灵避阳和骷髅控距。
 		Mob self = (Mob) (Object) this;
-		UltraHardAi.prioritizeUnshieldedTarget(self);
+		UltraHardAi.selectCombatTarget(self);
 		UltraHardAi.tickUndeadShelter(self);
 		if (self instanceof AbstractSkeleton skeleton) {
 			UltraHardAi.tickSkeleton(skeleton);
@@ -76,7 +76,7 @@ public abstract class MobHardMixin {
 			// 末影人不使用普通寻路绕行，而是瞬移到玩家的视线盲区。
 			UltraHardAi.tickEnderman(enderman);
 		} else {
-			UltraHardAi.flankShield(self, (net.minecraft.world.entity.LivingEntity) target, 3.0, 1.2);
+			UltraHardAi.flankShield(self, (net.minecraft.world.entity.LivingEntity) target, 1.2);
 		}
 		cir.setReturnValue(false);
 	}
@@ -84,6 +84,11 @@ public abstract class MobHardMixin {
 	@Inject(method = "setTarget", at = @At("HEAD"), cancellable = true)
 	private void ultrahard$ignoreHostileRetaliation(LivingEntity target, CallbackInfo ci) {
 		Mob self = (Mob) (Object) this;
+		// 仇恨模块的短期目标锁覆盖原版报复任务，避免两套目标逻辑来回抢占。
+		if (UltraHardAi.shouldKeepCombatTarget(self, target)) {
+			ci.cancel();
+			return;
+		}
 		// 附近有玩家时，敌对生物可以互相造成伤害，但不能因误伤而互相锁定仇恨。
 		if (target != null && UltraHardAi.shouldIgnoreHostileRetaliation(self, target)) {
 			ci.cancel();

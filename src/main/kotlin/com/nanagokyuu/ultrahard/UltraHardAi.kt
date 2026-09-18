@@ -3,6 +3,7 @@ package com.nanagokyuu.ultrahard
 import com.nanagokyuu.ultrahard.ai.CombatAi
 import com.nanagokyuu.ultrahard.ai.RangedAi
 import com.nanagokyuu.ultrahard.ai.WorldAi
+import com.nanagokyuu.ultrahard.ai.TargetingAi
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Holder
 import net.minecraft.server.level.ServerLevel
@@ -40,7 +41,7 @@ import java.util.UUID
 
 /**
  * Java Mixin 调用战术 AI 的统一入口，保持调用方与具体实现模块解耦。
- * 各方法只负责委托：近战与目标选择交给 CombatAi，远程战术交给 RangedAi，
+ * 各方法只负责委托：近战交给 CombatAi，仇恨选敌交给 TargetingAi，远程战术交给 RangedAi，
  * 避阳和临时方块维护交给 WorldAi。难度判断及更新节流由对应实现或调用方负责。
  * 保留 @JvmStatic，使 Java 注入代码可以直接调用静态方法，无需访问 Kotlin 单例字段。
  */
@@ -49,7 +50,13 @@ object UltraHardAi {
 	fun tickZombie(zombie: Zombie): Unit = CombatAi.tickZombie(zombie)
 
 	@JvmStatic
-	fun prioritizeUnshieldedTarget(mob: Mob): Unit = CombatAi.prioritizeUnshieldedTarget(mob)
+	fun selectCombatTarget(mob: Mob): Unit = TargetingAi.selectTarget(mob)
+
+	@JvmStatic
+	fun recordPlayerDamage(mob: Mob, player: ServerPlayer, damage: Float): Unit = TargetingAi.recordPlayerDamage(mob, player, damage)
+
+	@JvmStatic
+	fun shouldKeepCombatTarget(mob: Mob, proposed: LivingEntity?): Boolean = TargetingAi.shouldKeepSelectedTarget(mob, proposed)
 
 	@JvmStatic
 	fun shouldIgnoreHostileRetaliation(mob: Mob, target: LivingEntity): Boolean = CombatAi.shouldIgnoreHostileRetaliation(mob, target)
@@ -64,7 +71,7 @@ object UltraHardAi {
 	fun flankShield(skeleton: AbstractSkeleton, target: LivingEntity): Unit = CombatAi.flankShield(skeleton, target)
 
 	@JvmStatic
-	fun flankShield(mob: Mob, target: LivingEntity, radius: Double, speed: Double): Unit = CombatAi.flankShield(mob, target, radius, speed)
+	fun flankShield(mob: Mob, target: LivingEntity, speed: Double): Unit = CombatAi.flankShield(mob, target, speed)
 
 	@JvmStatic
 	fun tickSpider(spider: Spider): Unit = CombatAi.tickSpider(spider)

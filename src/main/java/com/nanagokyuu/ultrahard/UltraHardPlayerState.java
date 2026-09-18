@@ -6,12 +6,9 @@ package com.nanagokyuu.ultrahard;
  * 时间字段以 Long.MIN_VALUE 表示尚未记录，不可直接与正常游戏时间相减。
  */
 public interface UltraHardPlayerState {
-	/** 是否已经获得过任意铁盔甲。 */
-	boolean ultrahardHasIronMilestone();
-	void ultrahardSetIronMilestone(boolean value);
-	/** 是否已经获得过任意钻石盔甲。 */
-	boolean ultrahardHasDiamondMilestone();
-	void ultrahardSetDiamondMilestone(boolean value);
+	/** 重伤入睡后禁止跳夜的主世界昼夜日期；跨日自动失效。 */
+	long ultrahardGetSleepBlockedDay();
+	void ultrahardSetSleepBlockedDay(long value);
 	/** 上一次进食时的世界 tick，用于计算长期未进食倍率。 */
 	long ultrahardGetLastFoodTick();
 	void ultrahardSetLastFoodTick(long value);

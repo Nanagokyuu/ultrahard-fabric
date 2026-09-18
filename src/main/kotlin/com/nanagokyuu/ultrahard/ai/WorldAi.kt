@@ -34,6 +34,7 @@ import net.minecraft.world.item.alchemy.PotionContents
 import net.minecraft.world.item.alchemy.Potions
 import net.minecraft.world.phys.Vec3
 import java.util.UUID
+import java.util.WeakHashMap
 
 import com.nanagokyuu.ultrahard.UltraHardConfigs
 import com.nanagokyuu.ultrahard.UltraHardDifficulties
@@ -42,35 +43,61 @@ import com.nanagokyuu.ultrahard.UltraHardDifficulties
  * 蛛网只写入空气方块，到期只移除仍为蛛网的位置，不覆盖玩家随后放置的其他方块。
  */
 internal object WorldAi {
+	private data class Shelter(val origin: BlockPos, var destination: BlockPos?, var expiresAt: Long)
+	private val shelters = WeakHashMap<Mob, Shelter>()
+
+	/** 缓存落点仍需确认区块已加载、遮阳条件和完整实体碰撞体积。 */
+	private fun isShelter(level: ServerLevel, mob: Mob, candidate: BlockPos): Boolean {
+		if (!level.isLoaded(candidate)) return false
+		val water = level.getFluidState(candidate).`is`(FluidTags.WATER)
+		val shade = level.getBlockState(candidate).isAir && !level.getBlockState(candidate.below()).isAir && !level.canSeeSky(candidate)
+		return (water || shade) && level.noCollision(mob, mob.boundingBox.move(Vec3.atBottomCenterOf(candidate).subtract(mob.position())))
+	}
+
 	@JvmStatic
 	fun tickUndeadShelter(mob: Mob) {
 		val level = AiSupport.ultraHardLevel(mob) ?: return
 		val config = UltraHardConfigs.values
 		if (!mob.type.builtInRegistryHolder().`is`(EntityTypeTags.UNDEAD)
-			|| mob.isInWater || !level.isBrightOutside || !level.canSeeSky(mob.blockPosition())) return
-		if (mob.tickCount % config.undeadShelterSearchIntervalTicks != 0) return
+			|| mob.isInWater || !level.isBrightOutside || !level.canSeeSky(mob.blockPosition())) {
+			shelters.remove(mob)
+			return
+		}
+		if (!AiSupport.isScheduled(mob, config.undeadShelterSearchIntervalTicks)) return
 
-		// 以最近的水源或不能直视天空的可站立空气方块作为避阳终点。
+		// 成功和失败都缓存五秒；实体移动较远或落点失效时才提前重新扫描。
 		val center = mob.blockPosition()
-		var best: BlockPos? = null
-		var bestDistance = Double.MAX_VALUE
+		val now = level.gameTime
+		val cached = shelters[mob]
+		if (cached != null && now < cached.expiresAt && center.distSqr(cached.origin) < 16.0) {
+			val destination = cached.destination ?: return
+			if (isShelter(level, mob, destination)) {
+				if (!mob.navigation.isDone && mob.navigation.path?.target == destination) return
+				val path = mob.navigation.createPath(destination, 0)
+				if (path != null && path.canReach() && mob.navigation.moveTo(path, config.undeadShelterSpeed)) return
+				cached.destination = null
+				cached.expiresAt = now + 100L
+				return
+			}
+		}
+		val candidates = ArrayList<BlockPos>()
 		for (xOffset in -config.undeadShelterSearchRadius..config.undeadShelterSearchRadius) {
 			for (zOffset in -config.undeadShelterSearchRadius..config.undeadShelterSearchRadius) {
 				for (yOffset in -1..2) {
 					val candidate = center.offset(xOffset, yOffset, zOffset)
-					if (!level.isLoaded(candidate)) continue
-					val isWater = level.getFluidState(candidate).`is`(FluidTags.WATER)
-					val isShade = level.getBlockState(candidate).isAir && !level.getBlockState(candidate.below()).isAir && !level.canSeeSky(candidate)
-					if (!isWater && !isShade) continue
-					val distance = candidate.distSqr(center)
-					if (distance < bestDistance) {
-						best = candidate
-						bestDistance = distance
-					}
+					if (isShelter(level, mob, candidate)) candidates.add(candidate)
 				}
 			}
 		}
-		best?.let { AiSupport.moveTo(mob, Vec3.atBottomCenterOf(it), config.undeadShelterSpeed) }
+		// 只尝试最近的八个落点，给每次完整搜索设置明确的寻路预算。
+		for (destination in candidates.sortedBy { it.distSqr(center) }.take(8)) {
+			val path = mob.navigation.createPath(destination, 0)
+			if (path != null && path.canReach() && mob.navigation.moveTo(path, config.undeadShelterSpeed)) {
+				shelters[mob] = Shelter(center, destination, now + 100L)
+				return
+			}
+		}
+		shelters[mob] = Shelter(center, null, now + 100L)
 	}
 
 	@JvmStatic

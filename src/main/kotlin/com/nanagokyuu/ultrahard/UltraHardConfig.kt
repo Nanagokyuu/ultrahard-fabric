@@ -12,14 +12,16 @@ import java.nio.file.Path
  * 服务端玩法数值。首次运行会在 config/ultrahard.json 写出完整配置；修改后重启游戏或服务器生效。
  */
 data class UltraHardConfig(
+	// 用于一次性迁移旧默认值；后续读取不覆盖玩家自行调整过的配置。
+	val configVersion: Int = 2,
 	// 消耗倍率作用于 exhaustion，不是每次直接扣除饥饿条；未进食天数按每昼夜 24000 游戏刻换算。
 	val hungerExhaustionMultiplier: Float = 1.25f,
 	val starvingExhaustionMultiplier: Float = 1.75f,
 	val starvingAfterDays: Int = 2,
 	// 软上限先保留最大生命值的一定比例，再折算超出部分；两个比例分别控制阈值和超额收益。
 	val playerAttackCapFraction: Float = 0.25f,
-	val playerAttackOverflowMultiplier: Float = 0.25f,
-	// 按受击玩家曾获得的护甲阶段选择一个倍率，三档不叠乘；指定首领不使用此倍率。
+	val playerAttackOverflowMultiplier: Float = 0.5f,
+	// 字段名兼容旧配置：锁链/铁/金使用中档，钻石/下界合金使用高档，混穿取最高档。
 	val enemyDamageBaseMultiplier: Float = 1.0f,
 	val enemyDamageAfterIronMultiplier: Float = 1.5f,
 	val enemyDamageAfterDiamondMultiplier: Float = 2.0f,
@@ -32,7 +34,6 @@ data class UltraHardConfig(
 	val lifestealBaseRatio: Float = 0.1f,
 	val lifestealMaximumRatioLevel: Int = 9,
 	val lifestealMaximumRatio: Float = 1.0f,
-	val lifestealMinimumHealing: Int = 1,
 	val lifestealCooldownTicks: Int = 20,
 	// 战利品池每次只抽取一个结果；实际概率为单项权重除以包含空奖在内的总权重。
 	val desertPyramidLifestealOneWeight: Int = 5,
@@ -51,6 +52,15 @@ data class UltraHardConfig(
 	val damageCapParticleCount: Int = 8,
 	// 时间单位为游戏刻，距离单位为格；取模用的更新间隔必须大于零，导航速度为倍率。
 	val aiUpdateIntervalTicks: Int = 10,
+	// 仇恨按实际伤害积累并按秒衰减；最终优先级同时扣除装备和距离成本。
+	val targetScanRadius: Double = 32.0,
+	val threatPerDamage: Double = 2.0,
+	val threatDecayPerSecond: Double = 1.0,
+	val threatMaximum: Double = 40.0,
+	val targetEquipmentPenalty: Double = 0.6,
+	val targetDistancePenalty: Double = 0.35,
+	val targetSwitchMargin: Double = 4.0,
+	val targetLockTicks: Int = 60,
 	val hostileRetaliationSuppressionRadius: Double = 32.0,
 	val zombieCoordinationRadius: Double = 10.0,
 	val zombieFlankDistance: Double = 2.5,
@@ -72,7 +82,7 @@ data class UltraHardConfig(
 	val undeadShelterSpeed: Double = 1.1,
 )
 
-/** 配置只在初始化时加载；补齐缺失字段不会覆盖已有值，也不会自动校验所有数值范围。 */
+/** 配置只在初始化时加载；非法字段仅在内存回退，保留原值以便服主排查。 */
 object UltraHardConfigs {
 	private val gson = GsonBuilder().setPrettyPrinting().create()
 	private val path: Path = FabricLoader.getInstance().configDir.resolve("ultrahard.json")
@@ -98,10 +108,22 @@ object UltraHardConfigs {
 			}
 			// 旧配置缺少新字段时，Gson 会为基础类型填零值；先补齐默认值再反序列化。
 			val defaults = gson.toJsonTree(UltraHardConfig()).asJsonObject
-			if (addMissingDefaults(configJson, defaults)) {
+			var changed = false
+			if (!configJson.has("configVersion")) {
+				// 只迁移旧版默认的 25%；非默认比例视为服主的自定义设置并保留。
+				if (runCatching { configJson.get("playerAttackOverflowMultiplier")?.asFloat }.getOrNull() == 0.25f) {
+					configJson.addProperty("playerAttackOverflowMultiplier", 0.5f)
+					changed = true
+				}
+			}
+			// 旧版最低治疗字段已失效，移除以免误导服主。
+			if (configJson.remove("lifestealMinimumHealing") != null) changed = true
+			if (addMissingDefaults(configJson, defaults)) changed = true
+			if (changed) {
 				Files.newBufferedWriter(path).use { writer: Writer -> gson.toJson(configJson, writer) }
 			}
-			gson.fromJson(configJson, UltraHardConfig::class.java)
+			// 先完成缺项补齐和版本迁移，再在副本中校验，不把非法原值覆盖掉。
+			gson.fromJson(UltraHardConfigValidation.validate(configJson, defaults), UltraHardConfig::class.java)
 		} catch (exception: Exception) {
 			UltraHardMod.LOGGER.error("Could not read {}, using defaults", path, exception)
 			UltraHardConfig()

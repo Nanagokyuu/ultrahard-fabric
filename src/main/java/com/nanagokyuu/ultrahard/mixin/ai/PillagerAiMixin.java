@@ -19,7 +19,7 @@ public abstract class PillagerAiMixin {
 		// 弩箭已经装填完成但玩家正面举盾时，先取消射击并换到侧后方。
 		if (!UltraHardAi.shouldFlankShield(self, target)) return;
 		self.stopUsingItem();
-		UltraHardAi.flankShield(self, target, 8.0, 1.15);
+		UltraHardAi.flankShield(self, target, 1.15);
 		ci.cancel();
 	}
 }

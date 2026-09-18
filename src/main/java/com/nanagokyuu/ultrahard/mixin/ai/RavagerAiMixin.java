@@ -19,7 +19,7 @@ public abstract class RavagerAiMixin {
 		Ravager self = (Ravager) (Object) this;
 		// 劫掠兽的攻击判定独立于普通 Mob，需要在专用入口拦截盾牌正面攻击。
 		if (!UltraHardAi.shouldCancelShieldedMelee(self, target)) return;
-		UltraHardAi.flankShield(self, (net.minecraft.world.entity.LivingEntity) target, 4.0, 1.1);
+		UltraHardAi.flankShield(self, (net.minecraft.world.entity.LivingEntity) target, 1.1);
 		cir.setReturnValue(false);
 	}
 }
