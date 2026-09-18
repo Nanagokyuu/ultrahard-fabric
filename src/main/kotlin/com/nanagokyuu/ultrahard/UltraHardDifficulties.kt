@@ -7,7 +7,7 @@ import net.minecraft.world.level.Level
  * 提供 Ultra Hard 难度的辅助方法。
  *
  * ULTRAHARD 由 ClassTweaker 和
- * [com.nanagokyuu.ultrahard.mixin.DifficultyMixin] 添加，并提供将其
+ * [com.nanagokyuu.ultrahard.mixin.difficulty.DifficultyMixin] 添加，并提供将其
  * 映射为困难模式以复用原版困难逻辑的方法。
  */
 object UltraHardDifficulties {
