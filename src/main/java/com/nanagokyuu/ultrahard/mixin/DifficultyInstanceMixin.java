@@ -8,7 +8,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 /**
- * Makes Ultra Hard take Hard's local-difficulty branch while keeping id=4 scaling.
+ * 让 Ultra Hard 使用困难模式的区域难度分支，同时保留 id=4 对应的难度缩放。
  */
 @Mixin(DifficultyInstance.class)
 public abstract class DifficultyInstanceMixin {

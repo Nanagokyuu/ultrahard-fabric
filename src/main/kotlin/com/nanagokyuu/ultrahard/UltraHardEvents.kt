@@ -35,13 +35,13 @@ object UltraHardEvents {
 
 			val attacker = source.entity
 
-			// Preserve vanilla Hard damage calculation, but double hostile damage.
+			// 保留原版困难模式的伤害计算，并将敌对生物对玩家造成的伤害翻倍。
 			if (entity is ServerPlayer && isHostile(attacker)) {
 				applyDamage(entity, level, source, amount * UltraHardDifficulties.ENEMY_DAMAGE_MULTIPLIER)
 				return@register false
 			}
 
-			// Keep vanilla player damage, but cap each hit at 25% of max health.
+			// 保留原版玩家伤害，但将单次攻击限制为目标最大生命值的 25%。
 			if (attacker is ServerPlayer && entity !== attacker) {
 				val cappedAmount = minOf(
 					amount * UltraHardDifficulties.PLAYER_ATTACK_DAMAGE_MULTIPLIER,

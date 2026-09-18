@@ -5,8 +5,8 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 
 /**
- * Adds {@code ULTRAHARD} to {@link Difficulty} via Fabric enum extension.
- * Constructor args: id=4, key="ultrahard" (matches StringRepresentable /difficulty).
+ * 通过 Fabric 枚举扩展向 {@link Difficulty} 添加 {@code ULTRAHARD}。
+ * 构造参数为 id=4、key="ultrahard"，与字符串表示和 /difficulty 命令保持一致。
  */
 @Mixin(Difficulty.class)
 public enum DifficultyMixin {

@@ -20,7 +20,7 @@ repositories {
 }
 
 dependencies {
-	// Minecraft 26.1+ is unobfuscated: use implementation, no mappings()
+	// Minecraft 26.1 及更高版本未混淆，因此使用 implementation，不需要 mappings()。
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"

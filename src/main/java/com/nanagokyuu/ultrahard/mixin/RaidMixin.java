@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Raid.class)
 public abstract class RaidMixin {
-	/** Vanilla Hard returns 7 groups; switch on ordinal would MatchException for ULTRAHARD. */
+	/** 困难模式有 7 波袭击；直接返回可以避免新增枚举值导致序号分支匹配失败。 */
 	@Inject(method = "getNumGroups", at = @At("HEAD"), cancellable = true)
 	private void ultrahard$hardGroups(Difficulty difficulty, CallbackInfoReturnable<Integer> cir) {
 		if (UltraHardDifficulties.isUltraHard(difficulty)) {

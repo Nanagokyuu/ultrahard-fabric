@@ -4,8 +4,11 @@ import net.minecraft.world.Difficulty
 import net.minecraft.world.level.Level
 
 /**
- * Helpers for [Difficulty.ULTRAHARD] (added via classtweaker + [com.nanagokyuu.ultrahard.mixin.DifficultyMixin])
- * and Hard-compatible vanilla checks.
+ * 提供 Ultra Hard 难度的辅助方法。
+ *
+ * ULTRAHARD 由 ClassTweaker 和
+ * [com.nanagokyuu.ultrahard.mixin.DifficultyMixin] 添加，并提供将其
+ * 映射为困难模式以复用原版困难逻辑的方法。
  */
 object UltraHardDifficulties {
 	const val HUNGER_EXHAUSTION_MULTIPLIER = 1.5f
@@ -15,7 +18,7 @@ object UltraHardDifficulties {
 	const val DURABILITY_DAMAGE_MULTIPLIER = 2
 	const val RAID_GROUPS = 7
 
-	/** Same instance as [Difficulty.ULTRAHARD] after enum extension. */
+	/** 枚举扩展完成后，与 [Difficulty.ULTRAHARD] 相同的实例。 */
 	@JvmField
 	val ULTRAHARD: Difficulty = Difficulty.ULTRAHARD
 
@@ -30,8 +33,9 @@ object UltraHardDifficulties {
 		difficulty === Difficulty.HARD || isUltraHard(difficulty)
 
 	/**
-	 * Maps Ultra Hard → Hard so vanilla `difficulty == Difficulty.HARD` checks succeed.
-	 * Peaceful / Easy / Normal are unchanged.
+	 * 将 Ultra Hard 映射为 Hard，使原版的
+	 * `difficulty == Difficulty.HARD` 判断继续生效。
+	 * 和平、简单、普通难度保持不变。
 	 */
 	@JvmStatic
 	fun asHardCompatible(difficulty: Difficulty): Difficulty =

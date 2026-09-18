@@ -3,7 +3,7 @@
 	"id": "ultrahard",
 	"version": "${version}",
 	"name": "Ultra Hard",
-	"description": "Adds Ultra Hard difficulty (based on Hard): no natural regen, faster hunger, one-hit kills.",
+	"description": "Adds Ultra Hard difficulty based on Hard, with no natural regeneration, faster hunger, capped player damage, doubled hostile damage, and faster non-gold equipment durability loss.",
 	"authors": [
 		"Nanagokyuu"
 	],
