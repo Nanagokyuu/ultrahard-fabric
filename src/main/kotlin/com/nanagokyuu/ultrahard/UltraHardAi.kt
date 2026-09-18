@@ -38,6 +38,12 @@ import net.minecraft.world.item.alchemy.Potions
 import net.minecraft.world.phys.Vec3
 import java.util.UUID
 
+/**
+ * Java Mixin 调用战术 AI 的统一入口，保持调用方与具体实现模块解耦。
+ * 各方法只负责委托：近战与目标选择交给 CombatAi，远程战术交给 RangedAi，
+ * 避阳和临时方块维护交给 WorldAi。难度判断及更新节流由对应实现或调用方负责。
+ * 保留 @JvmStatic，使 Java 注入代码可以直接调用静态方法，无需访问 Kotlin 单例字段。
+ */
 object UltraHardAi {
 	@JvmStatic
 	fun tickZombie(zombie: Zombie): Unit = CombatAi.tickZombie(zombie)

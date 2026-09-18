@@ -37,6 +37,7 @@ import java.util.UUID
 
 import com.nanagokyuu.ultrahard.UltraHardConfigs
 import com.nanagokyuu.ultrahard.UltraHardDifficulties
+/** 负责目标偏好、群体站位、盾牌绕行和近战接敌；不同兵种复用相同的水平几何规则。 */
 internal object CombatAi {
 	@JvmStatic
 	fun tickZombie(zombie: Zombie) {
@@ -91,6 +92,10 @@ internal object CombatAi {
 		}
 	}
 
+	/**
+	 * 仅当双方均为敌对生物，且配置范围内存在存活的非旁观玩家时抑制报复目标。
+	 * 返回值供目标设置或受伤记忆注入使用，不取消伤害本身，也不表示所有场景都禁止内斗。
+	 */
 	@JvmStatic
 	fun shouldIgnoreHostileRetaliation(mob: Mob, target: LivingEntity): Boolean {
 		val level = AiSupport.ultraHardLevel(mob) ?: return false
@@ -123,6 +128,10 @@ internal object CombatAi {
 		return AiSupport.shieldFacing(target).dot(relative) >= -0.25
 	}
 
+	/**
+	 * 先尝试实体所在侧的绕行点，导航失败时尝试另一侧。
+	 * 仍在盾牌正前方时先横移，越过侧面后再向后方推进，避免路径直接穿过玩家。
+	 */
 	@JvmStatic
 	fun flankShield(mob: Mob, target: LivingEntity, radius: Double, speed: Double) {
 		if (!shouldFlankShield(mob, target)) return

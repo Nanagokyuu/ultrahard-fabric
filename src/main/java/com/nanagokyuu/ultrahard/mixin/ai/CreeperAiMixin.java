@@ -7,6 +7,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * 分别在刻开始、爆炸入口和刻结束处理绕盾、取消不合适的爆炸与疏散，避免仅在刻末处理而错过引爆时机。
+ */
 @Mixin(Creeper.class)
 public abstract class CreeperAiMixin {
 	@Inject(method = "tick", at = @At("HEAD"))

@@ -8,7 +8,12 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.component.WrittenBookContent
 
+/**
+ * 在玩家加入超困难世界时发放玩法说明，领取标记与玩家存档一起保存。
+ * 书页在发放时读取配置并生成文本快照；之后修改配置不会更新已经发出的书。
+ */
 object UltraHardRulesBook {
+	/** 背包满时掉落书籍，随后仍标记已领取，避免玩家反复重登刷取规则书。 */
 	fun giveTo(player: ServerPlayer) {
 		if (!UltraHardDifficulties.isUltraHard(player.level())) return
 		val state = player as UltraHardPlayerState

@@ -7,6 +7,9 @@ import net.minecraft.world.entity.projectile.hurtingprojectile.WitherSkull;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
+/**
+ * 在凋灵之首命中处理时兼容困难分支，保留原版弹射物命中流程。
+ */
 @Mixin(WitherSkull.class)
 public abstract class WitherSkullHardMixin {
 	@ModifyExpressionValue(

@@ -9,6 +9,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+/**
+ * 劫掠兽覆写近战伤害方法，需独立取消正面砍盾并使用适合其体型的绕行半径。
+ */
 @Mixin(Ravager.class)
 public abstract class RavagerAiMixin {
 	@Inject(method = "doHurtTarget", at = @At("HEAD"), cancellable = true)

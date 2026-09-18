@@ -10,6 +10,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * 在蜘蛛更新后追加绕盾与偷袭路线，同时使超困难沿用原版困难难度的生成增益判断。
+ */
 @Mixin(Spider.class)
 public abstract class SpiderHardMixin {
 	@Inject(method = "tick", at = @At("TAIL"))

@@ -22,6 +22,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+/**
+ * 通用生物规则入口：分派兵种战术、拦截正面近战与敌对报复目标，并在蜘蛛成功命中后尝试铺网。
+ */
 @Mixin(Mob.class)
 public abstract class MobHardMixin {
 	/** 统一处理所有 Mob 的 Ultra Hard 通用行为，具体战术再交给 UltraHardAi 分派。 */

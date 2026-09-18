@@ -7,6 +7,9 @@ import net.minecraft.world.entity.boss.wither.WitherBoss;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
+/**
+ * 在凋灵服务端 AI 的难度判断处复用困难分支，不在这里额外乘算首领伤害。
+ */
 @Mixin(WitherBoss.class)
 public abstract class WitherBossHardMixin {
 	@ModifyExpressionValue(

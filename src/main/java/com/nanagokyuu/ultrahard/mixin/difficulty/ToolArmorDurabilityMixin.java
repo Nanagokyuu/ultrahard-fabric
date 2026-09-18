@@ -22,6 +22,9 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
+/**
+ * 在物品栈耐久变化入口按物品类型扩大消耗，不修改最大耐久或维修配方；金制装备保留原始消耗。
+ */
 @Mixin(ItemStack.class)
 public abstract class ToolArmorDurabilityMixin {
 	@ModifyVariable(

@@ -8,6 +8,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Constant;
 import org.spongepowered.asm.mixin.injection.ModifyConstant;
 
+/**
+ * 只修改原版护甲生成概率中的基础常量，后续装备种类选择仍由原版处理；非超困难返回原值。
+ */
 @Mixin(Mob.class)
 public abstract class MobArmorSpawnMixin {
 	@ModifyConstant(

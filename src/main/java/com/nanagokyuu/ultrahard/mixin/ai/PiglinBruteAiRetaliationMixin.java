@@ -10,6 +10,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * 猪灵蛮兵具有独立的受伤报复入口；满足附近有玩家等条件时阻止写入敌对报复逻辑，不取消伤害。
+ */
 @Mixin(PiglinBruteAi.class)
 public abstract class PiglinBruteAiRetaliationMixin {
 	@Inject(method = "wasHurtBy", at = @At("HEAD"), cancellable = true)

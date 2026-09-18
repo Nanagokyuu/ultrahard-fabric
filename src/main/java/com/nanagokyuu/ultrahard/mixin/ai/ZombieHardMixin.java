@@ -11,6 +11,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * 将僵尸相关难度判断兼容到困难分支，允许破门，并在实体刻末追加同目标群体站位。
+ */
 @Mixin(Zombie.class)
 public abstract class ZombieHardMixin {
 	@ModifyExpressionValue(

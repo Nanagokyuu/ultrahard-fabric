@@ -20,6 +20,11 @@ import net.minecraft.network.chat.Component
 import kotlin.math.floor
 import java.util.UUID
 
+/**
+ * 通过服务端事件协调伤害、吸血、护甲进度和睡眠规则。
+ * 护甲进度及每日治疗记录通过 UltraHardPlayerState 持久化；
+ * 本次睡眠快照和待结算吸血仅保存在内存中，不作为玩家存档的一部分。
+ */
 object UltraHardEvents {
 	/** 防止自定义伤害再次进入 ALLOW_DAMAGE，避免递归处理同一次攻击。 */
 	private val bypassCustomDamage = ThreadLocal.withInitial { false }
@@ -43,6 +48,7 @@ object UltraHardEvents {
 		var healingReported: Boolean = false,
 	)
 
+	/** 初始化时注册一次；伤害回调记录结果，服务器帧末回调集中结算治疗并清理离线状态。 */
 	fun register() {
 		// 伤害事件负责处理三件互相独立的规则：敌人伤害倍率、玩家输出限伤、吸血记录。
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register { entity, source, amount ->
@@ -120,6 +126,7 @@ object UltraHardEvents {
 		}
 	}
 
+	/** 按世界运行刻数计算未进食时长；严格超过配置天数才升级倍率，未初始化时使用基础倍率。 */
 	@JvmStatic
 	fun hungerExhaustionMultiplier(player: Player): Float {
 		if (player !is ServerPlayer || !UltraHardDifficulties.isUltraHard(player.level())) return 1.0f
@@ -141,6 +148,7 @@ object UltraHardEvents {
 		}
 	}
 
+	/** 玩家实体被替换时复制长期记录，避免重生后护甲阶段、进食时间和规则书领取状态丢失。 */
 	@JvmStatic
 	fun copyPlayerState(oldPlayer: ServerPlayer, newPlayer: ServerPlayer) {
 		val oldState = oldPlayer as UltraHardPlayerState
@@ -169,6 +177,10 @@ object UltraHardEvents {
 		}
 	}
 
+	/**
+	 * 软上限基于目标最大生命值，而非当前剩余生命值。
+	 * 阈值以内保持输入伤害；只有超出部分按比例折算，随后对合计结果向下取整。
+	 */
 	private fun cappedPlayerDamage(amount: Float, maxHealth: Float): Float {
 		val cap = maxHealth * UltraHardConfigs.values.playerAttackCapFraction
 		if (amount <= cap) return amount
@@ -176,6 +188,10 @@ object UltraHardEvents {
 		return floor(cap + overflow)
 	}
 
+	/**
+	 * 用调整后的数值重新进入原版伤害流程，仍由原版处理护甲、吸收生命等机制。
+	 * 重入标记使内部伤害回调直接放行；外层回调再取消原始伤害，防止一次攻击扣血两次。
+	 */
 	private fun applyDamage(
 		entity: LivingEntity,
 		level: ServerLevel,
@@ -245,6 +261,7 @@ object UltraHardEvents {
 		}
 	}
 
+	/** 只在首次检测到睡眠时记录血量和日期；离床便丢弃快照，再次入睡重新建立。 */
 	private fun updateSleepState(player: ServerPlayer) {
 		if (!player.isSleeping) {
 			sleepStates.remove(player.uuid)
@@ -286,6 +303,7 @@ object UltraHardEvents {
 		}
 	}
 
+	/** 使用入睡时的血量决定跳夜资格，不能用本次睡眠治疗后的血量反向解锁资格。 */
 	@JvmStatic
 	fun canSkipNight(player: ServerPlayer): Boolean =
 		player.isAlive && player.isSleeping && player.sleepTimer >= SLEEP_HEALING_DELAY_TICKS

@@ -37,6 +37,10 @@ import java.util.UUID
 
 import com.nanagokyuu.ultrahard.UltraHardConfigs
 import com.nanagokyuu.ultrahard.UltraHardDifficulties
+/**
+ * 管理苦力怕引爆前的绕盾与疏散，以及女巫、掠夺者、唤魔者的站位和施法行为。
+ * 药水弹道保留原版发射方式；只在满足近身玩家条件时接管女巫药水选择。
+ */
 internal object RangedAi {
 	@JvmStatic
 	fun tickCreeperShield(creeper: Creeper) {

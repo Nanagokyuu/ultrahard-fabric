@@ -8,6 +8,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * 女巫更新时处理后排站位及友军治疗；远程攻击入口仅在自定义近身投药成功时取消原版投掷。
+ */
 @Mixin(Witch.class)
 public abstract class WitchAiMixin {
 	@Inject(method = "aiStep", at = @At("TAIL"))

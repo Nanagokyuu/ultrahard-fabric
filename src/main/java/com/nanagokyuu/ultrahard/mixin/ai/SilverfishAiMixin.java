@@ -7,6 +7,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * 在原版刻更新后追加群体包围策略；同目标蠹虫的排序和站位分配由战术模块完成。
+ */
 @Mixin(Silverfish.class)
 public abstract class SilverfishAiMixin {
 	@Inject(method = "tick", at = @At("TAIL"))

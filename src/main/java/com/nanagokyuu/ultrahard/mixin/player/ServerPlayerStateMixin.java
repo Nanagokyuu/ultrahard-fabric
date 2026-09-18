@@ -10,6 +10,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * 为服务端玩家注入持久状态；在原版读写存档完成后处理自定义键，缺失键使用初始值以兼容旧存档。
+ */
 @Mixin(ServerPlayer.class)
 public abstract class ServerPlayerStateMixin implements UltraHardPlayerState {
 	/** 以下字段会写入玩家存档，用于让装备阶段和规则书状态跨重登保留。 */

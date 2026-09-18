@@ -38,19 +38,32 @@ import java.util.UUID
 import com.nanagokyuu.ultrahard.UltraHardConfigs
 import com.nanagokyuu.ultrahard.UltraHardDifficulties
 
+/**
+ * 战术模块共用的几何计算、难度检查和运行期状态。
+ * 状态表由服务端逻辑访问，不写入实体存档；地图中的时间值是世界游戏刻数。
+ * 路径移动交给原版导航系统，计算出目标点不代表实体一定能够抵达。
+ */
 internal object AiSupport {
+	/** 同一玩家两次被铺网的最短间隔；200 游戏刻在正常刻速下为 10 秒。 */
 	internal const val SPIDER_WEB_COOLDOWN_TICKS = 200L
+	/** 临时蛛网的存活时间；清理时仍需确认该位置目前是蛛网。 */
 	internal const val SPIDER_WEB_DURATION_TICKS = 120L
+	/** 以女巫 UUID 累计近身投药阶段；当前实现不会因更换目标或拉开距离而重置。 */
 	internal val witchPotionSteps = HashMap<UUID, Int>()
+	/** 键为玩家 UUID，值为下一次允许铺网的时刻；不按蜘蛛或维度单独计冷却。 */
 	internal val spiderWebCooldowns = HashMap<UUID, Long>()
+	/** 先按世界实例分组，再记录坐标与到期时刻，避免不同维度相同坐标互相覆盖。 */
 	internal val temporarySpiderWebs = HashMap<ServerLevel, HashMap<BlockPos, Long>>()
+	/** 末影人成功主动瞬移后设置下次允许时刻；失败的落点尝试不会消耗冷却。 */
 	internal val endermanTeleportCooldowns = HashMap<UUID, Long>()
 
+	/** 同时过滤客户端世界和非超困难难度；返回空值时调用方应停止自定义行为。 */
 	internal fun ultraHardLevel(mob: Mob): ServerLevel? {
 		val level = mob.level() as? ServerLevel ?: return null
 		return level.takeIf(UltraHardDifficulties::isUltraHard)
 	}
 
+	/** 按实体存活刻数节流，而非每帧重算路径；配置中的更新间隔必须为正数。 */
 	internal fun shouldUpdate(mob: Mob): Boolean = mob.tickCount % UltraHardConfigs.values.aiUpdateIntervalTicks == 0
 
 	internal fun isHostile(entity: Entity): Boolean = entity is Enemy || entity is Monster
@@ -62,11 +75,13 @@ internal object AiSupport {
 		mob.navigation.moveTo(destination.x, destination.y, destination.z, speed)
 	}
 
+	/** 忽略高度差并归一化；水平向量接近零时使用固定方向，避免后续侧向计算退化。 */
 	internal fun horizontalDirection(vector: Vec3): Vec3 {
 		val horizontal = Vec3(vector.x, 0.0, vector.z)
 		return if (horizontal.lengthSqr() < 1.0E-4) Vec3(1.0, 0.0, 0.0) else horizontal.normalize()
 	}
 
+	/** 只使用水平转角计算盾牌正面，抬头或低头不会改变左右绕行的参考方向。 */
 	internal fun shieldFacing(target: LivingEntity): Vec3 {
 		val yaw = Math.toRadians(target.yRot.toDouble())
 		return Vec3(-kotlin.math.sin(yaw), 0.0, kotlin.math.cos(yaw))
@@ -74,6 +89,7 @@ internal object AiSupport {
 
 	internal fun isBlockingTarget(target: LivingEntity): Boolean = target is Player && target.isBlocking
 
+	/** 群体首位负责正面牵制，其余按编号交替分配左右后方位置；单只实体直接走后方。 */
 	internal fun swarmApproach(mob: Mob, target: LivingEntity, index: Int, size: Int, radius: Double, speed: Double) {
 		val facing = horizontalDirection(target.lookAngle)
 		val left = Vec3(-facing.z, 0.0, facing.x)
@@ -84,6 +100,7 @@ internal object AiSupport {
 		mob.navigation.moveTo(destination.x, destination.y, destination.z, speed)
 	}
 
+	/** 检查三格竖直空气、落点流体、下方支撑和实体碰撞后尝试瞬移，返回是否实际成功。 */
 	internal fun tryEndermanTeleport(enderman: EnderMan, destination: Vec3): Boolean {
 		val level = ultraHardLevel(enderman) ?: return false
 		val pos = BlockPos.containing(destination.x, destination.y, destination.z)

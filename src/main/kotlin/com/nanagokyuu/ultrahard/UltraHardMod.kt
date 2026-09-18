@@ -17,6 +17,7 @@ import net.minecraft.world.level.storage.loot.functions.SetEnchantmentsFunction
 import net.minecraft.world.level.storage.loot.providers.number.ConstantValue
 import org.slf4j.LoggerFactory
 
+/** 模组初始化入口：先加载数值配置，再注册规则事件、玩家状态迁移及战利品修改。 */
 object UltraHardMod : ModInitializer {
 	const val MOD_ID = "ultrahard"
 	val LOGGER = LoggerFactory.getLogger(MOD_ID)
@@ -38,6 +39,10 @@ object UltraHardMod : ModInitializer {
 		)
 	}
 
+	/**
+	 * 只为内置沙漠神殿战利品表追加一次抽取，不覆盖原有战利品池。
+	 * 三种等级与空奖共享权重；修改权重后概率应按总权重重新计算，并非固定百分比。
+	 */
 	private fun registerLootTableChanges() {
 		LootTableEvents.MODIFY.register { key, table, source, lookup ->
 			if (key != BuiltInLootTables.DESERT_PYRAMID || !source.isBuiltin) return@register
@@ -54,6 +59,7 @@ object UltraHardMod : ModInitializer {
 		}
 	}
 
+	/** 从当前世界注册表获取附魔，供袭击奖励创建指定等级的附魔书。 */
 	@JvmStatic
 	fun createLifestealBook(level: ServerLevel, levelValue: Int): ItemStack {
 		val enchantment = level.registryAccess()

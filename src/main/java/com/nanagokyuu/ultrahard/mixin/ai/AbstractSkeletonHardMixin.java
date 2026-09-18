@@ -11,6 +11,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * 保留困难难度下的武器目标选择，并在出箭前复查盾牌朝向；箭矢散布只在超困难下按配置替换。
+ */
 @Mixin(AbstractSkeleton.class)
 public abstract class AbstractSkeletonHardMixin {
 	/** 让骷髅继续使用困难难度下的武器重评估规则。 */

@@ -1,6 +1,10 @@
 package com.nanagokyuu.ultrahard;
 
-/** 保存 Ultra Hard 服务端规则所需的玩家长期进度。 */
+/**
+ * 服务端玩家长期状态的访问契约，由 ServerPlayerStateMixin 注入实现。
+ * 这些值会写入玩家存档，并在玩家实体替换时由事件代码复制；临时战斗状态不放在这里。
+ * 时间字段以 Long.MIN_VALUE 表示尚未记录，不可直接与正常游戏时间相减。
+ */
 public interface UltraHardPlayerState {
 	/** 是否已经获得过任意铁盔甲。 */
 	boolean ultrahardHasIronMilestone();

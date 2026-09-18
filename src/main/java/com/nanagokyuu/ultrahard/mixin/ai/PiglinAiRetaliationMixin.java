@@ -10,6 +10,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * 猪灵通过大脑记忆处理受伤报复，因此拦截 wasHurtBy，而非只依赖 Mob 的目标设置方法。
+ */
 @Mixin(PiglinAi.class)
 public abstract class PiglinAiRetaliationMixin {
 	@Inject(method = "wasHurtBy", at = @At("HEAD"), cancellable = true)

@@ -7,6 +7,9 @@ import net.minecraft.world.entity.LightningBolt;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
+/**
+ * 在闪电相关难度判断处复用困难分支，不修改世界持久化保存的实际难度值。
+ */
 @Mixin(LightningBolt.class)
 public abstract class LightningBoltHardMixin {
 	@ModifyExpressionValue(

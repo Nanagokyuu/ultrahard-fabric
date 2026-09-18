@@ -10,6 +10,9 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
+/**
+ * 仅阻断食物系统的自然回血及对应额外消耗，保留进食功能和其他治疗来源，并兼容困难饥饿规则。
+ */
 @Mixin(FoodData.class)
 public abstract class FoodDataMixin {
 	/**

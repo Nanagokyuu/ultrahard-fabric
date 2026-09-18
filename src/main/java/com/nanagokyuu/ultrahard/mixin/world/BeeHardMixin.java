@@ -7,6 +7,9 @@ import net.minecraft.world.entity.animal.bee.Bee;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
+/**
+ * 仅在蜜蜂造成伤害时兼容困难难度判断，保留原版攻击流程，不新增主动攻击目标。
+ */
 @Mixin(Bee.class)
 public abstract class BeeHardMixin {
 	@ModifyExpressionValue(

@@ -12,6 +12,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+/**
+ * 洞穴蜘蛛覆写了近战方法，因此单独拦截盾牌正面攻击；毒素相关难度判断继续使用困难分支。
+ */
 @Mixin(CaveSpider.class)
 public abstract class CaveSpiderHardMixin {
 	@Inject(method = "doHurtTarget", at = @At("HEAD"), cancellable = true)

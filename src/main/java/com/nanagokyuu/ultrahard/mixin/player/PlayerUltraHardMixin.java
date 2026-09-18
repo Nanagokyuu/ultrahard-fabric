@@ -9,6 +9,9 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
+/**
+ * 统一放大玩家 exhaustion 输入，并在受伤流程中将超困难映射到困难分支；长期未进食倍率由事件模块计算。
+ */
 @Mixin(Player.class)
 public abstract class PlayerUltraHardMixin {
 	@ModifyVariable(method = "causeFoodExhaustion", at = @At("HEAD"), argsOnly = true)

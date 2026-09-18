@@ -26,6 +26,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+/**
+ * 接管袭击总波次、最终波阵容、骑乘单位与胜利奖励；通过访问器读取原版私有的兵种和英雄信息。
+ */
 @Mixin(Raid.class)
 public abstract class RaidMixin {
 	@Shadow
@@ -42,6 +45,10 @@ public abstract class RaidMixin {
 		}
 	}
 
+	/**
+	 * 在原版读取兵种波次表之前接管最终波数量，避免新增波次访问原版表的范围之外。
+	 * 当前分支先将额外奖励波数量置零，再按总波次及当前波次判断是否使用配置阵容。
+	 */
 	@Inject(method = "getDefaultNumSpawns", at = @At("HEAD"), cancellable = true)
 	private void ultrahard$customEighthWave(
 			@Coerce Object raiderType,
@@ -84,6 +91,7 @@ public abstract class RaidMixin {
 		}
 	}
 
+	/** 在原版生成完成后寻找最终波已有的卫道士坐骑，替换其中一个乘客并将新骑手登记进袭击。 */
 	@Inject(method = "spawnGroup", at = @At("TAIL"))
 	private void ultrahard$addPillagerRider(ServerLevel level, BlockPos pos, CallbackInfo ci) {
 		if (!UltraHardDifficulties.isUltraHard(level)
@@ -113,6 +121,10 @@ public abstract class RaidMixin {
 		raid.updateBossbar();
 	}
 
+	/**
+	 * 胜利后向当前在线的英雄发奖；先设置标记，避免随后每次 tick 都重复发放。
+	 * 该标记仅保存在当前 Raid 实例中；离线英雄会被跳过，没有离线补发队列。
+	 */
 	@Inject(method = "tick", at = @At("TAIL"))
 	private void ultrahard$rewardEighthWaveVictory(ServerLevel level, CallbackInfo ci) {
 		Raid raid = (Raid) (Object) this;

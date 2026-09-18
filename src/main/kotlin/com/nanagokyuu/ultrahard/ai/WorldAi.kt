@@ -37,6 +37,10 @@ import java.util.UUID
 
 import com.nanagokyuu.ultrahard.UltraHardConfigs
 import com.nanagokyuu.ultrahard.UltraHardDifficulties
+/**
+ * 负责与世界环境相关的 AI：亡灵寻找避阳位置，以及蜘蛛产生的临时蛛网。
+ * 蛛网只写入空气方块，到期只移除仍为蛛网的位置，不覆盖玩家随后放置的其他方块。
+ */
 internal object WorldAi {
 	@JvmStatic
 	fun tickUndeadShelter(mob: Mob) {

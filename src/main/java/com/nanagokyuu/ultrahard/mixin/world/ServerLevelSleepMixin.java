@@ -8,6 +8,9 @@ import net.minecraft.server.level.ServerPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
+/**
+ * 在原版深睡眠人数条件之后追加超困难跳夜资格检查，并在时钟推进之前结算睡眠治疗。
+ */
 @Mixin(ServerLevel.class)
 public abstract class ServerLevelSleepMixin {
 	/**
