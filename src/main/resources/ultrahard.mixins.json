@@ -8,19 +8,27 @@
 		"FoodDataMixin",
 		"ToolArmorDurabilityMixin",
 		"PlayerUltraHardMixin",
+		"PlayerEatMixin",
+		"ServerPlayerStateMixin",
 		"MobHardMixin",
 		"MobArmorSpawnMixin",
 		"ZombieHardMixin",
 		"SpiderHardMixin",
 		"CaveSpiderHardMixin",
 		"AbstractSkeletonHardMixin",
+		"RangedBowAttackGoalMixin",
+		"CreeperAiMixin",
+		"WitchAiMixin",
 		"VindicatorHardMixin",
 		"GuardianAttackGoalHardMixin",
 		"WitherBossHardMixin",
 		"WitherSkullHardMixin",
 		"BeeHardMixin",
 		"LightningBoltHardMixin",
-		"RaidMixin"
+		"RaidMixin",
+		"RaidRaiderTypeAccessor",
+		"RaidAccessor",
+		"ServerLevelSleepMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

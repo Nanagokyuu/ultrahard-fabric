@@ -1,11 +1,11 @@
 package com.nanagokyuu.ultrahard.mixin;
 
 import com.llamalad7.mixinextras.sugar.Local;
+import com.nanagokyuu.ultrahard.UltraHardConfigs;
 import com.nanagokyuu.ultrahard.UltraHardDifficulties;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.ItemTags;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BowItem;
 import net.minecraft.world.item.BrushItem;
 import net.minecraft.world.item.CrossbowItem;
@@ -16,6 +16,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.MaceItem;
 import net.minecraft.world.item.ShearsItem;
+import net.minecraft.world.item.ShieldItem;
 import net.minecraft.world.item.TridentItem;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -34,7 +35,7 @@ public abstract class ToolArmorDurabilityMixin {
 	) {
 		ItemStack stack = (ItemStack) (Object) this;
 		return UltraHardDifficulties.isUltraHard(level) && isAffected(stack)
-				? amount * UltraHardDifficulties.DURABILITY_DAMAGE_MULTIPLIER
+				? amount * UltraHardConfigs.getValues().getDurabilityDamageMultiplier()
 				: amount;
 	}
 
@@ -48,6 +49,7 @@ public abstract class ToolArmorDurabilityMixin {
 				|| stack.is(ItemTags.LEG_ARMOR)
 				|| stack.is(ItemTags.FOOT_ARMOR)
 				|| stack.has(DataComponents.TOOL)
+				|| stack.has(DataComponents.BLOCKS_ATTACKS)
 				|| stack.is(ItemTags.SWORDS)
 				|| stack.is(ItemTags.AXES)
 				|| stack.is(ItemTags.HOES)
@@ -72,6 +74,7 @@ public abstract class ToolArmorDurabilityMixin {
 				|| item instanceof ShearsItem
 				|| item instanceof FlintAndSteelItem
 				|| item instanceof BrushItem
-				|| item instanceof MaceItem;
+				|| item instanceof MaceItem
+				|| item instanceof ShieldItem;
 	}
 }

@@ -1,6 +1,7 @@
 package com.nanagokyuu.ultrahard.mixin;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.nanagokyuu.ultrahard.UltraHardAi;
 import com.nanagokyuu.ultrahard.UltraHardDifficulties;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.monster.zombie.Zombie;
@@ -8,6 +9,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Zombie.class)
 public abstract class ZombieHardMixin {
@@ -38,5 +40,10 @@ public abstract class ZombieHardMixin {
 		if (UltraHardDifficulties.isUltraHard(difficulty)) {
 			cir.setReturnValue(true);
 		}
+	}
+
+	@Inject(method = "tick", at = @At("TAIL"))
+	private void ultrahard$coordinateZombieAttack(CallbackInfo ci) {
+		UltraHardAi.tickZombie((Zombie) (Object) this);
 	}
 }

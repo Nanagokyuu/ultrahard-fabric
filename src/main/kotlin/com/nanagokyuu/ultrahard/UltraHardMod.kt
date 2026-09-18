@@ -1,9 +1,12 @@
 package com.nanagokyuu.ultrahard
 
 import net.fabricmc.fabric.api.loot.v3.LootTableEvents
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents
 import net.fabricmc.api.ModInitializer
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.Identifier
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.storage.loot.BuiltInLootTables
 import net.minecraft.world.level.storage.loot.LootPool
@@ -19,8 +22,13 @@ object UltraHardMod : ModInitializer {
 	val LOGGER = LoggerFactory.getLogger(MOD_ID)
 
 	override fun onInitialize() {
+		UltraHardConfigs.load()
 		val ultra = UltraHardDifficulties.ULTRAHARD
 		UltraHardEvents.register()
+		ServerPlayerEvents.JOIN.register(UltraHardRulesBook::giveTo)
+		ServerPlayerEvents.COPY_FROM.register { oldPlayer, newPlayer, _ ->
+			UltraHardEvents.copyPlayerState(oldPlayer, newPlayer)
+		}
 		registerLootTableChanges()
 		LOGGER.info(
 			"Ultra Hard initialized as Difficulty.{} (id={}, key={})",
@@ -37,12 +45,21 @@ object UltraHardMod : ModInitializer {
 			val enchantment = lookup.lookupOrThrow(Registries.ENCHANTMENT)
 				.getOrThrow(UltraHardEnchantments.LIFESTEAL)
 			val pool = LootPool.lootPool().setRolls(ConstantValue.exactly(1.0f))
-			pool.add(enchantedBook(enchantment, 1, 5))
-			pool.add(enchantedBook(enchantment, 2, 4))
-			pool.add(enchantedBook(enchantment, 3, 3))
-			pool.add(EmptyLootItem.emptyItem().setWeight(88))
+			val config = UltraHardConfigs.values
+			pool.add(enchantedBook(enchantment, 1, config.desertPyramidLifestealOneWeight))
+			pool.add(enchantedBook(enchantment, 2, config.desertPyramidLifestealTwoWeight))
+			pool.add(enchantedBook(enchantment, 3, config.desertPyramidLifestealThreeWeight))
+			pool.add(EmptyLootItem.emptyItem().setWeight(config.desertPyramidNoBookWeight))
 			table.withPool(pool)
 		}
+	}
+
+	@JvmStatic
+	fun createLifestealBook(level: ServerLevel, levelValue: Int): ItemStack {
+		val enchantment = level.registryAccess()
+			.lookupOrThrow(Registries.ENCHANTMENT)
+			.getOrThrow(UltraHardEnchantments.LIFESTEAL)
+		return ItemStack(Items.ENCHANTED_BOOK).also { it.enchant(enchantment, levelValue) }
 	}
 
 	private fun enchantedBook(

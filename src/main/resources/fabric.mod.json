@@ -3,7 +3,7 @@
 	"id": "ultrahard",
 	"version": "${version}",
 	"name": "Ultra Hard",
-	"description": "Adds Ultra Hard difficulty based on Hard, with no natural regeneration, faster hunger, capped player damage, doubled hostile damage, and faster non-gold equipment durability loss.",
+	"description": "Adds Ultra Hard difficulty based on Hard, with no natural regeneration, progression-scaled hostile damage, hostile-target soft damage caps, faster non-gold equipment durability loss, fixed 8-wave raids, and daily sleep healing.",
 	"authors": [
 		"Nanagokyuu"
 	],

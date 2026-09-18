@@ -1,6 +1,7 @@
 package com.nanagokyuu.ultrahard.mixin;
 
 import com.nanagokyuu.ultrahard.UltraHardDifficulties;
+import com.nanagokyuu.ultrahard.UltraHardConfigs;
 import net.minecraft.world.entity.Mob;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -15,6 +16,8 @@ public abstract class MobArmorSpawnMixin {
 	)
 	private float ultrahard$doubleArmorSpawnChance(float original) {
 		Mob self = (Mob) (Object) this;
-		return UltraHardDifficulties.isUltraHard(self.level()) ? original * 2.0f : original;
+		return UltraHardDifficulties.isUltraHard(self.level())
+				? original * UltraHardConfigs.getValues().getMobArmorSpawnMultiplier()
+				: original;
 	}
 }

@@ -1,5 +1,5 @@
 {
 	"enchantment.ultrahard.lifesteal": "Lifesteal",
 	"options.difficulty.ultrahard": "Ultra Hard",
-	"options.difficulty.ultrahard.info": "Based on Hard, plus: no natural regen, faster hunger, hostile damage is doubled, player attacks are capped at 25% of target max health, and non-gold tools and armor lose durability twice as fast."
+	"options.difficulty.ultrahard.info": "Based on Hard, plus: no natural regen, faster hunger, progression-scaled hostile damage, hostile-target soft caps, tactical hostile AI, fixed eighth-wave raids, and daily sleep healing."
 }
