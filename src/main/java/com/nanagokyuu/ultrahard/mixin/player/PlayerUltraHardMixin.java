@@ -1,8 +1,8 @@
 package com.nanagokyuu.ultrahard.mixin.player;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
-import com.nanagokyuu.ultrahard.UltraHardDifficulties;
-import com.nanagokyuu.ultrahard.UltraHardEvents;
+import com.nanagokyuu.ultrahard.difficulty.UltraHardDifficulties;
+import com.nanagokyuu.ultrahard.events.UltraHardEvents;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;

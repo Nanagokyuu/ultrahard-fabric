@@ -1,6 +1,7 @@
-package com.nanagokyuu.ultrahard
+package com.nanagokyuu.ultrahard.config
 
 import com.google.gson.JsonObject
+import com.nanagokyuu.ultrahard.UltraHardMod
 
 /** 每个数值字段都有明确边界；类型错误、非有限数、整数小数和越界值分别回退。 */
 internal object UltraHardConfigValidation {

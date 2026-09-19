@@ -1,6 +1,6 @@
 package com.nanagokyuu.ultrahard.mixin.player;
 
-import com.nanagokyuu.ultrahard.UltraHardEvents;
+import com.nanagokyuu.ultrahard.events.UltraHardEvents;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.food.FoodProperties;

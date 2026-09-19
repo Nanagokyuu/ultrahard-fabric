@@ -1,43 +1,29 @@
 package com.nanagokyuu.ultrahard
 
-import com.nanagokyuu.ultrahard.ai.CombatAi
 import com.nanagokyuu.ultrahard.ai.RangedAi
-import com.nanagokyuu.ultrahard.ai.WorldAi
 import com.nanagokyuu.ultrahard.ai.TargetingAi
-import net.minecraft.core.BlockPos
+import com.nanagokyuu.ultrahard.ai.WorldAi
+import com.nanagokyuu.ultrahard.ai.combat.CombatAi
+import com.nanagokyuu.ultrahard.ai.combat.CombatAiSpecials
 import net.minecraft.core.Holder
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.sounds.SoundEvents
-import net.minecraft.tags.EntityTypeTags
-import net.minecraft.tags.FluidTags
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.Mob
-import net.minecraft.world.entity.player.Player
 import net.minecraft.world.entity.monster.Creeper
 import net.minecraft.world.entity.monster.EnderMan
 import net.minecraft.world.entity.monster.Endermite
-import net.minecraft.world.entity.monster.Monster
 import net.minecraft.world.entity.monster.Ravager
 import net.minecraft.world.entity.monster.Silverfish
 import net.minecraft.world.entity.monster.Witch
-import net.minecraft.world.entity.monster.Enemy
 import net.minecraft.world.entity.monster.illager.Evoker
 import net.minecraft.world.entity.monster.illager.Pillager
 import net.minecraft.world.entity.monster.illager.Vindicator
 import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton
-import net.minecraft.world.entity.monster.zombie.Zombie
 import net.minecraft.world.entity.monster.spider.Spider
-import net.minecraft.world.entity.projectile.Projectile
-import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownSplashPotion
-import net.minecraft.world.entity.raid.Raider
-import net.minecraft.world.item.Items
+import net.minecraft.world.entity.monster.zombie.Zombie
 import net.minecraft.world.item.alchemy.Potion
-import net.minecraft.world.item.alchemy.PotionContents
-import net.minecraft.world.item.alchemy.Potions
-import net.minecraft.world.phys.Vec3
-import java.util.UUID
 
 /**
  * Java Mixin 调用战术 AI 的统一入口，保持调用方与具体实现模块解耦。
@@ -74,22 +60,22 @@ object UltraHardAi {
 	fun flankShield(mob: Mob, target: LivingEntity, speed: Double): Unit = CombatAi.flankShield(mob, target, speed)
 
 	@JvmStatic
-	fun tickSpider(spider: Spider): Unit = CombatAi.tickSpider(spider)
+	fun tickSpider(spider: Spider): Unit = CombatAiSpecials.tickSpider(spider)
 
 	@JvmStatic
-	fun tickVindicator(vindicator: Vindicator): Unit = CombatAi.tickVindicator(vindicator)
+	fun tickVindicator(vindicator: Vindicator): Unit = CombatAiSpecials.tickVindicator(vindicator)
 
 	@JvmStatic
-	fun tickRavager(ravager: Ravager): Unit = CombatAi.tickRavager(ravager)
+	fun tickRavager(ravager: Ravager): Unit = CombatAiSpecials.tickRavager(ravager)
 
 	@JvmStatic
-	fun tickEnderman(enderman: EnderMan): Unit = CombatAi.tickEnderman(enderman)
+	fun tickEnderman(enderman: EnderMan): Unit = CombatAiSpecials.tickEnderman(enderman)
 
 	@JvmStatic
-	fun tickSilverfish(silverfish: Silverfish): Unit = CombatAi.tickSilverfish(silverfish)
+	fun tickSilverfish(silverfish: Silverfish): Unit = CombatAiSpecials.tickSilverfish(silverfish)
 
 	@JvmStatic
-	fun tickEndermite(endermite: Endermite): Unit = CombatAi.tickEndermite(endermite)
+	fun tickEndermite(endermite: Endermite): Unit = CombatAiSpecials.tickEndermite(endermite)
 
 	@JvmStatic
 	fun tickCreeperShield(creeper: Creeper): Unit = RangedAi.tickCreeperShield(creeper)

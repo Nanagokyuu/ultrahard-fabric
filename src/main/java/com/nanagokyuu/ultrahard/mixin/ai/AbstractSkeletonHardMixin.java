@@ -2,7 +2,7 @@ package com.nanagokyuu.ultrahard.mixin.ai;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.nanagokyuu.ultrahard.UltraHardAi;
-import com.nanagokyuu.ultrahard.UltraHardDifficulties;
+import com.nanagokyuu.ultrahard.difficulty.UltraHardDifficulties;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton;
@@ -50,7 +50,7 @@ public abstract class AbstractSkeletonHardMixin {
 		AbstractSkeleton self = (AbstractSkeleton) (Object) this;
 		// 替换原版发射调用的最后一个参数，即箭矢散布值；具体数值仍由配置控制。
 		return UltraHardDifficulties.isUltraHard(self.level())
-				? com.nanagokyuu.ultrahard.UltraHardConfigs.getValues().getSkeletonArrowInaccuracy()
+				? com.nanagokyuu.ultrahard.config.UltraHardConfigs.getValues().getSkeletonArrowInaccuracy()
 				: original;
 	}
 }

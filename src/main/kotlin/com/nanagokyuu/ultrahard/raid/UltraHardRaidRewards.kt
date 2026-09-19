@@ -1,9 +1,12 @@
-package com.nanagokyuu.ultrahard
+package com.nanagokyuu.ultrahard.raid
 
+import com.nanagokyuu.ultrahard.UltraHardMod
+import com.nanagokyuu.ultrahard.config.UltraHardConfigs
+import com.nanagokyuu.ultrahard.difficulty.UltraHardDifficulties
+import java.util.UUID
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
-import java.util.UUID
 
 /** 暂存袭击胜利奖励，允许参与者在胜利时离线并在下次上线领取。 */
 object UltraHardRaidRewards {

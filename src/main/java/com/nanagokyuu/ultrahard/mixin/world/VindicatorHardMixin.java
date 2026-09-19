@@ -1,6 +1,6 @@
 package com.nanagokyuu.ultrahard.mixin.world;
 
-import com.nanagokyuu.ultrahard.UltraHardDifficulties;
+import com.nanagokyuu.ultrahard.difficulty.UltraHardDifficulties;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.monster.illager.Vindicator;
 import org.spongepowered.asm.mixin.Mixin;

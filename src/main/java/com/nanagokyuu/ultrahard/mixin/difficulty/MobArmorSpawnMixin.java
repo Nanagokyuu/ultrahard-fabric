@@ -1,7 +1,7 @@
 package com.nanagokyuu.ultrahard.mixin.difficulty;
 
-import com.nanagokyuu.ultrahard.UltraHardDifficulties;
-import com.nanagokyuu.ultrahard.UltraHardConfigs;
+import com.nanagokyuu.ultrahard.difficulty.UltraHardDifficulties;
+import com.nanagokyuu.ultrahard.config.UltraHardConfigs;
 import net.minecraft.world.entity.Mob;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

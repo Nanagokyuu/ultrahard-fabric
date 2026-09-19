@@ -2,7 +2,7 @@ package com.nanagokyuu.ultrahard.mixin.player;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.sugar.Local;
-import com.nanagokyuu.ultrahard.UltraHardDifficulties;
+import com.nanagokyuu.ultrahard.difficulty.UltraHardDifficulties;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.food.FoodData;

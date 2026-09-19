@@ -1,15 +1,15 @@
 package com.nanagokyuu.ultrahard.ai
 
-import com.nanagokyuu.ultrahard.UltraHardConfigs
-import com.nanagokyuu.ultrahard.UltraHardEquipment
-import net.minecraft.server.level.ServerPlayer
-import net.minecraft.world.entity.Mob
-import net.minecraft.world.entity.LivingEntity
-import net.minecraft.world.phys.Vec3
+import com.nanagokyuu.ultrahard.config.UltraHardConfigs
+import com.nanagokyuu.ultrahard.equipment.UltraHardEquipment
+import java.lang.ref.WeakReference
 import java.util.UUID
 import java.util.WeakHashMap
-import java.lang.ref.WeakReference
 import kotlin.math.sqrt
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.entity.Mob
+import net.minecraft.world.phys.Vec3
 
 /** 每只怪物独立积累仇恨；弱引用键与短期缓存避免保留死亡实体或离线玩家。 */
 internal object TargetingAi {

@@ -1,8 +1,8 @@
 package com.nanagokyuu.ultrahard.mixin.difficulty;
 
 import com.llamalad7.mixinextras.sugar.Local;
-import com.nanagokyuu.ultrahard.UltraHardConfigs;
-import com.nanagokyuu.ultrahard.UltraHardDifficulties;
+import com.nanagokyuu.ultrahard.config.UltraHardConfigs;
+import com.nanagokyuu.ultrahard.difficulty.UltraHardDifficulties;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.ItemTags;

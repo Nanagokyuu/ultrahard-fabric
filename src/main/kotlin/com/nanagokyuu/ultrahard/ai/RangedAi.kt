@@ -1,30 +1,17 @@
 package com.nanagokyuu.ultrahard.ai
 
-import net.minecraft.core.BlockPos
+import com.nanagokyuu.ultrahard.ai.combat.CombatAi
+import com.nanagokyuu.ultrahard.config.UltraHardConfigs
 import net.minecraft.core.Holder
-import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.sounds.SoundEvents
-import net.minecraft.tags.EntityTypeTags
-import net.minecraft.tags.FluidTags
-import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.Mob
-import net.minecraft.world.entity.player.Player
 import net.minecraft.world.entity.monster.Creeper
-import net.minecraft.world.entity.monster.EnderMan
-import net.minecraft.world.entity.monster.Endermite
-import net.minecraft.world.entity.monster.Monster
-import net.minecraft.world.entity.monster.Ravager
-import net.minecraft.world.entity.monster.Silverfish
 import net.minecraft.world.entity.monster.Witch
-import net.minecraft.world.entity.monster.Enemy
 import net.minecraft.world.entity.monster.illager.Evoker
 import net.minecraft.world.entity.monster.illager.Pillager
-import net.minecraft.world.entity.monster.illager.Vindicator
-import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton
-import net.minecraft.world.entity.monster.zombie.Zombie
-import net.minecraft.world.entity.monster.spider.Spider
+import net.minecraft.world.entity.player.Player
 import net.minecraft.world.entity.projectile.Projectile
 import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownSplashPotion
 import net.minecraft.world.entity.raid.Raider
@@ -32,11 +19,7 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.item.alchemy.Potion
 import net.minecraft.world.item.alchemy.PotionContents
 import net.minecraft.world.item.alchemy.Potions
-import net.minecraft.world.phys.Vec3
-import java.util.UUID
 
-import com.nanagokyuu.ultrahard.UltraHardConfigs
-import com.nanagokyuu.ultrahard.UltraHardDifficulties
 /**
  * 管理苦力怕引爆前的绕盾与疏散，以及女巫、掠夺者、唤魔者的站位和施法行为。
  * 药水弹道保留原版发射方式；只在满足近身玩家条件时接管女巫药水选择。

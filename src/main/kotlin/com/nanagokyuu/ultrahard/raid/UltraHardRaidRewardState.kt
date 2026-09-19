@@ -1,13 +1,14 @@
-package com.nanagokyuu.ultrahard
+package com.nanagokyuu.ultrahard.raid
 
 import com.mojang.serialization.Codec
 import com.mojang.serialization.codecs.RecordCodecBuilder
+import com.nanagokyuu.ultrahard.UltraHardMod
+import java.util.UUID
 import net.minecraft.core.UUIDUtil
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.util.datafix.DataFixTypes
 import net.minecraft.world.level.saveddata.SavedData
 import net.minecraft.world.level.saveddata.SavedDataType
-import java.util.UUID
 
 /** 将离线袭击奖励保存到主世界存档，避免重启服务器后丢失。 */
 class UltraHardRaidRewardState(initial: Map<UUID, Reward> = emptyMap()) : SavedData() {

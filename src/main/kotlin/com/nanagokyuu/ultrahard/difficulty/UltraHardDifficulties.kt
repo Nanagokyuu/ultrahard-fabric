@@ -1,4 +1,4 @@
-package com.nanagokyuu.ultrahard
+package com.nanagokyuu.ultrahard.difficulty
 
 import net.minecraft.world.Difficulty
 import net.minecraft.world.level.Level

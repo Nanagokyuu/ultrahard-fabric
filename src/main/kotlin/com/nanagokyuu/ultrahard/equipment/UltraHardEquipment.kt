@@ -1,10 +1,12 @@
-package com.nanagokyuu.ultrahard
+package com.nanagokyuu.ultrahard.equipment
 
+import com.nanagokyuu.ultrahard.UltraHardPlayerState
+import com.nanagokyuu.ultrahard.config.UltraHardConfigs
+import java.util.WeakHashMap
 import net.minecraft.world.entity.EquipmentSlot
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.Items
-import java.util.WeakHashMap
 
 /** 只读取实际护甲槽和手持物品；背包内的装备不参与伤害倍率或仇恨评分。 */
 object UltraHardEquipment {
@@ -23,7 +25,7 @@ object UltraHardEquipment {
 		netheriteArmor.forEach { put(it, 5) }
 	}
 
-	/** 根据受击瞬间的实际护甲值和护甲韧性连续调整伤害，最高增加 80%。 */
+	/** 将当前护甲倍率与本次生命的击杀倍率相乘；护甲额外倍率默认最多为 80%。 */
 	fun enemyDamageMultiplier(player: Player): Float {
 		val config = UltraHardConfigs.values
 		// 只使用护甲值，不使用护甲韧性，因此满钻石甲和满下界合金甲均为 1.8 倍。

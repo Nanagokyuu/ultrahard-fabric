@@ -1,10 +1,10 @@
 package com.nanagokyuu.ultrahard.mixin.raid;
 
 import com.nanagokyuu.ultrahard.mixin.accessor.RaidRaiderTypeAccessor;
-import com.nanagokyuu.ultrahard.UltraHardConfigs;
-import com.nanagokyuu.ultrahard.UltraHardDifficulties;
+import com.nanagokyuu.ultrahard.config.UltraHardConfigs;
+import com.nanagokyuu.ultrahard.difficulty.UltraHardDifficulties;
 import com.nanagokyuu.ultrahard.UltraHardMod;
-import com.nanagokyuu.ultrahard.UltraHardRaidRewards;
+import com.nanagokyuu.ultrahard.raid.UltraHardRaidRewards;
 import net.minecraft.world.Difficulty;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;

@@ -1,5 +1,6 @@
-package com.nanagokyuu.ultrahard
+package com.nanagokyuu.ultrahard.enchantment
 
+import com.nanagokyuu.ultrahard.UltraHardMod
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey
 import net.minecraft.world.item.enchantment.Enchantment

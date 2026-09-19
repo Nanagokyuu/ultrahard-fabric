@@ -1,7 +1,7 @@
 package com.nanagokyuu.ultrahard.mixin.world;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
-import com.nanagokyuu.ultrahard.UltraHardDifficulties;
+import com.nanagokyuu.ultrahard.difficulty.UltraHardDifficulties;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.boss.wither.WitherBoss;
 import org.spongepowered.asm.mixin.Mixin;
