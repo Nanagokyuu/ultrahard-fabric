@@ -13,7 +13,7 @@ import java.nio.file.Path
  */
 data class UltraHardConfig(
 	// 用于一次性迁移旧默认值；后续读取不覆盖玩家自行调整过的配置。
-	val configVersion: Int = 2,
+	val configVersion: Int = 3,
 	// 消耗倍率作用于 exhaustion，不是每次直接扣除饥饿条；未进食天数按每昼夜 24000 游戏刻换算。
 	val hungerExhaustionMultiplier: Float = 1.25f,
 	val starvingExhaustionMultiplier: Float = 1.75f,
@@ -21,15 +21,21 @@ data class UltraHardConfig(
 	// 软上限先保留最大生命值的一定比例，再折算超出部分；两个比例分别控制阈值和超额收益。
 	val playerAttackCapFraction: Float = 0.25f,
 	val playerAttackOverflowMultiplier: Float = 0.5f,
-	// 字段名兼容旧配置：锁链/铁/金使用中档，钻石/下界合金使用高档，混穿取最高档。
-	val enemyDamageBaseMultiplier: Float = 1.0f,
-	val enemyDamageAfterIronMultiplier: Float = 1.5f,
-	val enemyDamageAfterDiamondMultiplier: Float = 2.0f,
+	// 敌人伤害随受击玩家的护甲值和护甲韧性连续增长，额外伤害最多为 80%。
+	val armorDamageScaling: Float = 0.04f,
+	val maximumArmorDamageBonus: Float = 0.8f,
 	// 倍增单次耐久消耗，不修改物品的最大耐久；金制工具和金制盔甲由注入代码排除。
 	val durabilityDamageMultiplier: Int = 2,
 	val mobArmorSpawnMultiplier: Float = 1.5f,
-	// 睡满五秒且不足十点生命时的治疗量；至少十点生命时直接回满。
-	val sleepHealingAmount: Float = 10.0f,
+	// 睡满五秒后每日治疗一次；治疗量为最大生命值比例，并限制在最小/最大值之间。
+	val sleepHealingFraction: Float = 0.4f,
+	val sleepHealingMinimum: Float = 6.0f,
+	val sleepHealingMaximum: Float = 12.0f,
+	// 当前生命的有效击杀数用于降低敌人伤害；死亡或切换到创造/旁观后清零。
+	val killDamageReductionPerKill: Float = 0.005f,
+	val killDamageReductionMaximumKills: Int = 50,
+	val killDamageMinimumMultiplier: Float = 0.75f,
+	val killDamageMilestoneInterval: Int = 10,
 	// 未达封顶等级时，吸血比例为基础比例乘以“等级 + 1”；达到封顶等级则直接使用最大比例。
 	val lifestealBaseRatio: Float = 0.1f,
 	val lifestealMaximumRatioLevel: Int = 9,
@@ -118,6 +124,10 @@ object UltraHardConfigs {
 			}
 			// 旧版最低治疗字段已失效，移除以免误导服主。
 			if (configJson.remove("lifestealMinimumHealing") != null) changed = true
+			// 移除已被连续护甲倍率和新睡眠治疗模型替代的旧字段。
+			for (key in listOf("enemyDamageBaseMultiplier", "enemyDamageAfterIronMultiplier", "enemyDamageAfterDiamondMultiplier", "sleepHealingAmount")) {
+				if (configJson.remove(key) != null) changed = true
+			}
 			if (addMissingDefaults(configJson, defaults)) changed = true
 			if (changed) {
 				Files.newBufferedWriter(path).use { writer: Writer -> gson.toJson(configJson, writer) }

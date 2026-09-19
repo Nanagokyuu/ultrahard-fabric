@@ -6,15 +6,15 @@ package com.nanagokyuu.ultrahard;
  * 时间字段以 Long.MIN_VALUE 表示尚未记录，不可直接与正常游戏时间相减。
  */
 public interface UltraHardPlayerState {
-	/** 重伤入睡后禁止跳夜的主世界昼夜日期；跨日自动失效。 */
-	long ultrahardGetSleepBlockedDay();
-	void ultrahardSetSleepBlockedDay(long value);
 	/** 上一次进食时的世界 tick，用于计算长期未进食倍率。 */
 	long ultrahardGetLastFoodTick();
 	void ultrahardSetLastFoodTick(long value);
 	/** 上一次睡眠治疗结算对应的主世界昼夜日期。 */
 	long ultrahardGetLastSleepHealingDay();
 	void ultrahardSetLastSleepHealingDay(long value);
+	/** 当前生命累计的有效击杀数；死亡或切换到创造/旁观后清零。 */
+	int ultrahardGetLifeKills();
+	void ultrahardSetLifeKills(int value);
 	/** 是否已经向玩家发放过规则书。 */
 	boolean ultrahardHasReceivedRulesBook();
 	void ultrahardSetReceivedRulesBook(boolean value);

@@ -14,6 +14,8 @@ import net.minecraft.world.entity.monster.Enemy
 import net.minecraft.world.entity.monster.Monster
 import net.minecraft.world.entity.monster.warden.Warden
 import net.minecraft.world.entity.player.Player
+import net.minecraft.world.entity.projectile.Projectile
+import net.minecraft.world.level.GameType
 import net.minecraft.world.item.enchantment.EnchantmentHelper
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.network.chat.Component
@@ -22,7 +24,7 @@ import java.util.UUID
 
 /**
  * 通过服务端事件协调伤害、吸血、当前装备和睡眠规则。
- * 每日治疗及重伤禁跳夜记录通过 UltraHardPlayerState 持久化；
+ * 每日睡眠治疗记录通过 UltraHardPlayerState 持久化；
  * 本次睡眠快照和待结算吸血仅保存在内存中，不作为玩家存档的一部分。
  */
 object UltraHardEvents {
@@ -32,6 +34,8 @@ object UltraHardEvents {
 	private val lifestealStates = HashMap<UUID, LifestealState>()
 	/** 记录玩家本次入睡时的血量，用于区分是否允许跳夜。 */
 	private val sleepStates = HashMap<UUID, SleepState>()
+	/** 记录上一帧的游戏模式，用于检测进入创造或旁观并清空当前生命击杀数。 */
+	private val previousGameModes = HashMap<UUID, GameType>()
 
 	private data class LifestealState(
 		/** 同一 tick 内多次命中只保留最高一次回血量。 */
@@ -93,11 +97,33 @@ object UltraHardEvents {
 			true
 		}
 
+		// 生物死亡后再统计击杀，确保只有真正死亡的敌对生物才会增加连击数。
+		ServerLivingEntityEvents.AFTER_DEATH.register { entity, source ->
+			if (entity is ServerPlayer) {
+				val wasUltraHard = UltraHardDifficulties.isUltraHard(entity.level())
+				val kills = lifeKills(entity)
+				val correction = (1.0f - UltraHardEquipment.killDamageMultiplier(entity)) * 100.0f
+				resetLifeKills(
+					entity,
+					if (wasUltraHard) "本次生命结束：击杀 ${kills} 个敌对生物，敌人伤害修正 -${formatPercent(correction)}%，已清零。" else null,
+				)
+				return@register
+			}
+			if (entity.level() !is ServerLevel || !UltraHardDifficulties.isUltraHard(entity.level())) return@register
+			if (!isHostile(entity)) return@register
+			val killer = resolvePlayerKiller(source) ?: return@register
+			if (killer.isCreative || killer.isSpectator) return@register
+			addLifeKill(killer)
+		}
+
 		ServerTickEvents.END_SERVER_TICK.register { server ->
 			// 这些状态只存在于服务端内存中，玩家离线或难度切换时必须主动清理。
 			val currentTick = server.overworld().gameTime
 			for (player in server.playerList.players) {
+				trackGameMode(player)
 				if (!UltraHardDifficulties.isUltraHard(player.level())) {
+					// 离开超困难后立即清空连击，防止切回超困难时恢复旧的战斗收益。
+					if (lifeKills(player) > 0) resetLifeKills(player)
 					// 切换离开 Ultra Hard 时，不能把旧难度的待结算吸血带回去。
 					lifestealStates.remove(player.uuid)
 					sleepStates.remove(player.uuid)
@@ -124,6 +150,7 @@ object UltraHardEvents {
 			}
 			lifestealStates.keys.removeIf { uuid -> server.playerList.getPlayer(uuid) == null }
 			sleepStates.keys.removeIf { uuid -> server.playerList.getPlayer(uuid) == null }
+			previousGameModes.keys.removeIf { uuid -> server.playerList.getPlayer(uuid) == null }
 			server.allLevels.forEach { level -> UltraHardAi.tickTemporarySpiderWebs(level) }
 		}
 	}
@@ -155,11 +182,69 @@ object UltraHardEvents {
 	fun copyPlayerState(oldPlayer: ServerPlayer, newPlayer: ServerPlayer) {
 		val oldState = oldPlayer as UltraHardPlayerState
 		val newState = newPlayer as UltraHardPlayerState
-		newState.ultrahardSetSleepBlockedDay(oldState.ultrahardGetSleepBlockedDay())
 		newState.ultrahardSetLastFoodTick(oldState.ultrahardGetLastFoodTick())
 		newState.ultrahardSetLastSleepHealingDay(oldState.ultrahardGetLastSleepHealingDay())
+		// 正常重生时死亡事件已经清零；非死亡替换则保留当前生命的击杀数。
+		newState.ultrahardSetLifeKills(if (oldPlayer.isAlive) oldState.ultrahardGetLifeKills() else 0)
 		newState.ultrahardSetReceivedRulesBook(oldState.ultrahardHasReceivedRulesBook())
 	}
+
+	/** 返回玩家当前生命累计的有效击杀数。 */
+	private fun lifeKills(player: ServerPlayer): Int =
+		(player as UltraHardPlayerState).ultrahardGetLifeKills()
+
+	/** 增加击杀数，并在每达到一个十击杀节点时显示正反馈。 */
+	private fun addLifeKill(player: ServerPlayer) {
+		val state = player as UltraHardPlayerState
+		val oldKills = state.ultrahardGetLifeKills()
+		val newKills = oldKills + 1
+		state.ultrahardSetLifeKills(newKills)
+		val interval = UltraHardConfigs.values.killDamageMilestoneInterval
+		if (newKills / interval <= oldKills / interval) return
+
+		val multiplier = UltraHardEquipment.killDamageMultiplier(player)
+		val correction = (1.0f - multiplier) * 100.0f
+		// 粒子和 Action Bar 都只在十击杀节点触发，不污染聊天框。
+		player.level().sendParticles(
+			ParticleTypes.HAPPY_VILLAGER,
+			player.x,
+			player.y + player.bbHeight * 0.5,
+			player.z,
+			12,
+			0.35,
+			0.5,
+			0.35,
+			0.05,
+		)
+		player.sendOverlayMessage(
+			Component.literal("战斗连击：${newKills}｜敌人伤害修正：-${formatPercent(correction)}%"),
+		)
+	}
+
+	/** 清空当前生命击杀数，并在死亡时保留一条总结提示。 */
+	private fun resetLifeKills(player: ServerPlayer, message: String? = null) {
+		val state = player as UltraHardPlayerState
+		state.ultrahardSetLifeKills(0)
+		if (message != null) player.sendSystemMessage(Component.literal(message))
+	}
+
+	/** 只允许玩家本人或玩家发射的投射物获得击杀计数。 */
+	private fun resolvePlayerKiller(source: net.minecraft.world.damagesource.DamageSource): ServerPlayer? {
+		(source.entity as? ServerPlayer)?.let { return it }
+		val projectile = source.directEntity as? Projectile ?: return null
+		return projectile.owner as? ServerPlayer
+	}
+
+	/** 进入创造或旁观时立即清空连击，避免通过指令保留战斗收益。 */
+	private fun trackGameMode(player: ServerPlayer) {
+		val mode = player.gameMode()
+		val previous = previousGameModes.put(player.uuid, mode)
+		if (mode == GameType.CREATIVE || mode == GameType.SPECTATOR) {
+			if (previous != mode || lifeKills(player) > 0) resetLifeKills(player)
+		}
+	}
+
+	private fun formatPercent(value: Float): String = "%.0f".format(value)
 
 	private fun isHostile(entity: Entity?): Boolean {
 		return entity is Enemy || entity is Monster
@@ -245,12 +330,7 @@ object UltraHardEvents {
 		val day = Math.floorDiv(player.level().overworldClockTime, TICKS_PER_DAY)
 		if (sleepStates[player.uuid]?.calendarDay == day) return
 		sleepStates[player.uuid] = SleepState(player.health, day)
-		// 误触床不会影响全服；重伤限制在睡满五秒并首次领取当日治疗时生效。
-		player.sendOverlayMessage(Component.literal(when {
-			UltraHardRestState.isBlocked(player.level()) -> UltraHardRestState.BLOCKED_MESSAGE
-			player.health < SLEEP_SKIP_HEALTH_THRESHOLD -> "重伤休息：睡满 5 秒领取治疗后，今夜将无法跳过。"
-			else -> "已入睡，连续睡满 5 秒后结算今日睡眠治疗。"
-		}))
+		player.sendOverlayMessage(Component.literal("已入睡，连续睡满 5 秒后结算今日睡眠治疗。"))
 	}
 
 	@JvmStatic
@@ -265,38 +345,15 @@ object UltraHardEvents {
 
 		// 在跳夜之前结算并记录旧日期，避免起床后漏治疗或占用次日的次数。
 		state.ultrahardSetLastSleepHealingDay(day)
-		if (sleepState.healthWhenSleepStarted < SLEEP_SKIP_HEALTH_THRESHOLD) {
-			state.ultrahardSetSleepBlockedDay(day)
-			UltraHardRestState.blockTonight(player.level())
-		}
-		// 入睡前达到阈值时回满，否则只给固定治疗，并由 canSkipNight 拒绝跳夜。
-		val healing = if (sleepState.healthWhenSleepStarted >= SLEEP_SKIP_HEALTH_THRESHOLD) {
-			player.maxHealth - player.health
-		} else {
-			UltraHardConfigs.values.sleepHealingAmount
-		}
+		val config = UltraHardConfigs.values
+		val healing = (player.maxHealth * config.sleepHealingFraction)
+			.coerceIn(config.sleepHealingMinimum, config.sleepHealingMaximum)
 		player.heal(healing)
 		if (!sleepState.healingReported) {
 			sleepState.healingReported = true
-			player.sendOverlayMessage(
-				Component.literal(if (!UltraHardRestState.isBlocked(player.level()))
-					"睡眠治疗完成：生命值已回满，可以跳过夜晚。"
-				else UltraHardRestState.BLOCKED_MESSAGE),
-			)
+			player.sendOverlayMessage(Component.literal("睡眠治疗完成：恢复 %.1f 点生命值。".format(healing)))
 		}
 	}
-
-	/** 限制按昼夜日期保存；回血、离床、重登和死亡都不能清除当晚标记。 */
-	@JvmStatic
-	fun isSleepBlockedTonight(player: ServerPlayer): Boolean =
-		(player as UltraHardPlayerState).ultrahardGetSleepBlockedDay() == Math.floorDiv(player.level().overworldClockTime, TICKS_PER_DAY)
-
-	/** 除当晚重伤标记外，仍需满足连续睡眠时间和入睡血量条件。 */
-	@JvmStatic
-	fun canSkipNight(player: ServerPlayer): Boolean =
-		player.isAlive && player.isSleeping && player.sleepTimer >= SLEEP_HEALING_DELAY_TICKS
-			&& !isSleepBlockedTonight(player)
-			&& (sleepStates[player.uuid]?.healthWhenSleepStarted ?: 0.0f) >= SLEEP_SKIP_HEALTH_THRESHOLD
 
 	private fun spawnDamageCapParticles(level: ServerLevel, entity: LivingEntity) {
 		level.sendParticles(
@@ -314,5 +371,4 @@ object UltraHardEvents {
 
 	private const val TICKS_PER_DAY = 24_000L
 	private const val SLEEP_HEALING_DELAY_TICKS = 100
-	private const val SLEEP_SKIP_HEALTH_THRESHOLD = 10.0f
 }

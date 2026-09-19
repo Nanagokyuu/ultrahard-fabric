@@ -3,14 +3,13 @@ package com.nanagokyuu.ultrahard.mixin.world;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.nanagokyuu.ultrahard.UltraHardDifficulties;
 import com.nanagokyuu.ultrahard.UltraHardEvents;
-import com.nanagokyuu.ultrahard.UltraHardRestState;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 /**
- * 在原版深睡眠人数条件之后追加超困难跳夜资格检查，并在时钟推进之前结算睡眠治疗。
+ * 在原版深睡眠人数条件检查时结算超困难睡眠治疗；跳夜资格完全沿用原版。
  */
 @Mixin(ServerLevel.class)
 public abstract class ServerLevelSleepMixin {
@@ -28,16 +27,9 @@ public abstract class ServerLevelSleepMixin {
 	)
 	private boolean ultrahard$checkRestBeforeSkippingNight(boolean original) {
 		ServerLevel level = (ServerLevel) (Object) this;
-		if (!original || !UltraHardDifficulties.isUltraHard(level)) return original;
-		// 世界级日期锁覆盖离线和跨维度情况，队友也不能替重伤玩家跳过当晚。
-		if (UltraHardRestState.isBlocked(level)) return false;
-
-		var sleepers = level.players().stream().filter(ServerPlayer::isSleeping).toList();
-		// 原版会先跳到次日再唤醒玩家，因此必须在这里按睡眠当日结算治疗。
-		sleepers.forEach(UltraHardEvents::healSleepingPlayer);
-		// 本次结算可能刚刚触发世界级锁，不能只检查结算之前的状态。
-		if (UltraHardRestState.isBlocked(level)) return false;
-		// 保留原版睡眠人数比例，同时保证所有实际参与者都连续睡满五秒。
-		return !sleepers.isEmpty() && sleepers.stream().allMatch(UltraHardEvents::canSkipNight);
+		if (original && UltraHardDifficulties.isUltraHard(level)) {
+			level.players().stream().filter(ServerPlayer::isSleeping).forEach(UltraHardEvents::healSleepingPlayer);
+		}
+		return original;
 	}
 }

@@ -12,11 +12,6 @@ object UltraHardEquipment {
 	private val ironArmor = setOf(Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS)
 	private val diamondArmor = setOf(Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS)
 	private val netheriteArmor = setOf(Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS)
-	private val mediumArmor = ironArmor + setOf(
-		Items.CHAINMAIL_HELMET, Items.CHAINMAIL_CHESTPLATE, Items.CHAINMAIL_LEGGINGS, Items.CHAINMAIL_BOOTS,
-		Items.GOLDEN_HELMET, Items.GOLDEN_CHESTPLATE, Items.GOLDEN_LEGGINGS, Items.GOLDEN_BOOTS,
-	)
-	private val heavyArmor = diamondArmor + netheriteArmor
 	private data class CachedScore(val tick: Long, val score: Int)
 	private val scoreCache = WeakHashMap<Player, CachedScore>()
 	private val armorScores: Map<Item, Int> = buildMap {
@@ -28,14 +23,24 @@ object UltraHardEquipment {
 		netheriteArmor.forEach { put(it, 5) }
 	}
 
-	/** 混穿取最高材质档；伤害倍率不使用评分缓存，换装后的下一次受击立即生效。 */
+	/** 根据受击瞬间的实际护甲值和护甲韧性连续调整伤害，最高增加 80%。 */
 	fun enemyDamageMultiplier(player: Player): Float {
-		val equipped = armorSlots.map { player.getItemBySlot(it).item }
-		return when {
-			equipped.any { it in heavyArmor } -> UltraHardConfigs.values.enemyDamageAfterDiamondMultiplier
-			equipped.any { it in mediumArmor } -> UltraHardConfigs.values.enemyDamageAfterIronMultiplier
-			else -> UltraHardConfigs.values.enemyDamageBaseMultiplier
-		}
+		val config = UltraHardConfigs.values
+		// 只使用护甲值，不使用护甲韧性，因此满钻石甲和满下界合金甲均为 1.8 倍。
+		val armor = player.getArmorValue().toFloat().coerceAtMost(20.0f)
+		val armorBonus = (armor * config.armorDamageScaling)
+			.coerceIn(0.0f, config.maximumArmorDamageBonus)
+		val killMultiplier = killDamageMultiplier(player)
+		return (1.0f + armorBonus) * killMultiplier
+	}
+
+	/** 根据当前生命的击杀数降低敌人伤害，最多降低 25%。 */
+	fun killDamageMultiplier(player: Player): Float {
+		val state = player as? UltraHardPlayerState ?: return 1.0f
+		val config = UltraHardConfigs.values
+		val kills = state.ultrahardGetLifeKills().coerceAtMost(config.killDamageReductionMaximumKills)
+		val reduction = kills * config.killDamageReductionPerKill
+		return (1.0f - reduction).coerceAtLeast(config.killDamageMinimumMultiplier)
 	}
 
 	/** 盾牌只在主手或副手持有时加三分，双持不重复计分，也不要求正在举盾。 */

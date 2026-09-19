@@ -26,7 +26,10 @@ object UltraHardMod : ModInitializer {
 		UltraHardConfigs.load()
 		val ultra = UltraHardDifficulties.ULTRAHARD
 		UltraHardEvents.register()
-		ServerPlayerEvents.JOIN.register(UltraHardRulesBook::giveTo)
+		ServerPlayerEvents.JOIN.register {
+			UltraHardRaidRewards.deliver(it)
+			UltraHardRulesBook.giveTo(it)
+		}
 		ServerPlayerEvents.COPY_FROM.register { oldPlayer, newPlayer, _ ->
 			UltraHardEvents.copyPlayerState(oldPlayer, newPlayer)
 		}

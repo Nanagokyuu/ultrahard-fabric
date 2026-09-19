@@ -1,10 +1,10 @@
 package com.nanagokyuu.ultrahard.mixin.raid;
 
-import com.nanagokyuu.ultrahard.mixin.accessor.RaidAccessor;
 import com.nanagokyuu.ultrahard.mixin.accessor.RaidRaiderTypeAccessor;
 import com.nanagokyuu.ultrahard.UltraHardConfigs;
 import com.nanagokyuu.ultrahard.UltraHardDifficulties;
 import com.nanagokyuu.ultrahard.UltraHardMod;
+import com.nanagokyuu.ultrahard.UltraHardRaidRewards;
 import net.minecraft.world.Difficulty;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -14,8 +14,11 @@ import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.monster.Ravager;
 import net.minecraft.world.entity.raid.Raid;
 import net.minecraft.world.entity.raid.Raider;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -36,6 +39,10 @@ public abstract class RaidMixin {
 	private int numGroups;
 	@Unique
 	private boolean ultrahard$eighthWaveRewardsGranted;
+	@Unique
+	private final Map<UUID, Integer> ultrahard$finalWavePresenceTicks = new HashMap<>();
+	@Unique
+	private final Set<UUID> ultrahard$finalWaveParticipants = new HashSet<>();
 
 	/** 超困难为 8 波；直接返回可以避免新增枚举值导致序号分支匹配失败。 */
 	@Inject(method = "getNumGroups", at = @At("HEAD"), cancellable = true)
@@ -121,13 +128,32 @@ public abstract class RaidMixin {
 		raid.updateBossbar();
 	}
 
-	/**
-	 * 胜利后向当前在线的英雄发奖；先设置标记，避免随后每次 tick 都重复发放。
-	 * 该标记仅保存在当前 Raid 实例中；离线英雄会被跳过，没有离线补发队列。
-	 */
+	/** 第八波期间追踪实际在场的玩家；持续参与五秒后获得奖励资格。 */
+	@Unique
+	private void ultrahard$trackFinalWaveParticipants(ServerLevel level, Raid raid) {
+		if (this.numGroups != UltraHardConfigs.getValues().getRaidGroups()) return;
+		boolean finalWaveActive = raid.getAllRaiders().stream()
+				.anyMatch(raider -> raider.isAlive() && raider.getWave() == this.numGroups);
+		if (!finalWaveActive) return;
+		var finalRaiders = raid.getAllRaiders().stream()
+				.filter(raider -> raider.isAlive() && raider.getWave() == this.numGroups)
+				.toList();
+		for (ServerPlayer player : level.players()) {
+			if (player.isCreative() || player.isSpectator()) continue;
+			boolean nearby = finalRaiders.stream().anyMatch(raider -> raider.distanceToSqr(player) <= 64.0 * 64.0);
+			if (!nearby) continue;
+			int ticks = this.ultrahard$finalWavePresenceTicks.merge(player.getUUID(), 1, Integer::sum);
+			if (ticks >= 100) this.ultrahard$finalWaveParticipants.add(player.getUUID());
+		}
+	}
+
+	/** 胜利后向所有合格参与者发奖；离线玩家进入待领取队列。 */
 	@Inject(method = "tick", at = @At("TAIL"))
 	private void ultrahard$rewardEighthWaveVictory(ServerLevel level, CallbackInfo ci) {
 		Raid raid = (Raid) (Object) this;
+		if (!this.ultrahard$eighthWaveRewardsGranted) {
+			this.ultrahard$trackFinalWaveParticipants(level, raid);
+		}
 		if (ultrahard$eighthWaveRewardsGranted
 				|| !UltraHardDifficulties.isUltraHard(level)
 				|| this.numGroups < UltraHardConfigs.getValues().getRaidGroups()
@@ -136,25 +162,12 @@ public abstract class RaidMixin {
 		}
 
 		ultrahard$eighthWaveRewardsGranted = true;
-		for (java.util.UUID uuid : ((RaidAccessor) raid).ultrahard$getHeroesOfTheVillage()) {
+		for (UUID uuid : this.ultrahard$finalWaveParticipants) {
+			boolean giveApple = level.getRandom().nextFloat()
+					< UltraHardConfigs.getValues().getEighthWaveEnchantedGoldenAppleChance();
+			UltraHardRaidRewards.queue(level, uuid, giveApple);
 			ServerPlayer player = level.getServer().getPlayerList().getPlayer(uuid);
-			if (player == null) continue;
-			giveReward(player, UltraHardMod.createLifestealBook(
-					level,
-					UltraHardConfigs.getValues().getEighthWaveLifestealBookLevel()
-			));
-			ItemStack bonus = level.getRandom().nextFloat()
-					< UltraHardConfigs.getValues().getEighthWaveEnchantedGoldenAppleChance()
-					? new ItemStack(Items.ENCHANTED_GOLDEN_APPLE)
-					: new ItemStack(Items.TOTEM_OF_UNDYING);
-			giveReward(player, bonus);
-		}
-	}
-
-	@Unique
-	private static void giveReward(ServerPlayer player, ItemStack reward) {
-		if (!player.getInventory().add(reward)) {
-			player.drop(reward, false);
+			if (player != null) UltraHardRaidRewards.deliver(player);
 		}
 	}
 }

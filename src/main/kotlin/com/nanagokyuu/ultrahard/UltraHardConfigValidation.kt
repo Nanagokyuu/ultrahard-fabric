@@ -7,6 +7,8 @@ internal object UltraHardConfigValidation {
 	private val integerRanges = mapOf(
 		"configVersion" to 2..100,
 		"starvingAfterDays" to 0..36_500,
+		"killDamageReductionMaximumKills" to 1..100_000,
+		"killDamageMilestoneInterval" to 1..100_000,
 		"durabilityDamageMultiplier" to 1..16,
 		"lifestealMaximumRatioLevel" to 1..255,
 		"lifestealCooldownTicks" to 0..72_000,
@@ -29,7 +31,8 @@ internal object UltraHardConfigValidation {
 	)
 	private val fractionFields = setOf(
 		"playerAttackCapFraction", "playerAttackOverflowMultiplier", "lifestealBaseRatio",
-		"lifestealMaximumRatio", "eighthWaveEnchantedGoldenAppleChance",
+		"lifestealMaximumRatio", "eighthWaveEnchantedGoldenAppleChance", "armorDamageScaling",
+		"killDamageReductionPerKill", "killDamageMinimumMultiplier",
 	)
 
 	fun validate(source: JsonObject, defaults: JsonObject): JsonObject {
@@ -43,7 +46,9 @@ internal object UltraHardConfigValidation {
 			val range = when {
 				integerRange != null -> integerRange.first.toDouble()..integerRange.last.toDouble()
 				key in fractionFields -> 0.0..1.0
-				key == "sleepHealingAmount" -> 0.0..1_024.0
+				key == "sleepHealingFraction" -> 0.0..1.0
+				key == "sleepHealingMinimum" || key == "sleepHealingMaximum" -> 0.0..1_024.0
+				key == "maximumArmorDamageBonus" -> 0.0..4.0
 				key == "skeletonArrowInaccuracy" -> 0.0..180.0
 				key == "targetScanRadius" -> 1.0..64.0
 				key == "threatMaximum" -> 1.0..1_000.0
