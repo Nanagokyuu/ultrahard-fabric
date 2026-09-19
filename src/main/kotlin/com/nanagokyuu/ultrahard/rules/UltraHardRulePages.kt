@@ -48,7 +48,7 @@ internal object UltraHardRulePages {
 			"死亡时显示战斗经验总结并清零；进入创造、旁观或离开超困难时也清零。",
 			"重登和正常换维度保留。不死图腾救回不算死亡。清零后战斗经验倍率回到1.0，护甲倍率仍单独计算。"),
 		page("吸血条件",
-			"吸血适用于剑和斧，正常最高III级。仅玩家满蓄力直接近战命中敌对生物生效。",
+			"吸血适用于剑和斧，等级为I～III。仅玩家满蓄力直接近战命中敌对生物生效。",
 			"冷却 ${number(config.lifestealCooldownTicks / 20.0f)} 秒；同一游戏刻多次命中只取最大治疗量。远程和宠物攻击不能吸血。"),
 		page("吸血数值",
 			"本服I/II/III级分别回复有效伤害的 ${percent(lifestealRatio(config, 1))}% / ${percent(lifestealRatio(config, 2))}% / ${percent(lifestealRatio(config, 3))}%。",
