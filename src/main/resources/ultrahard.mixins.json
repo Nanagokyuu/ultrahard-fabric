@@ -27,6 +27,8 @@
 		"ai.RavagerAiMixin",
 		"ai.CaveSpiderHardMixin",
 		"ai.AbstractSkeletonHardMixin",
+		"ai.WitherSkeletonCombatMixin",
+		"ai.UndeadMeleeCooldownMixin",
 		"ai.RangedBowAttackGoalMixin",
 		"ai.EndermanAiMixin",
 		"ai.SilverfishAiMixin",

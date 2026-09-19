@@ -1,6 +1,8 @@
 package com.nanagokyuu.ultrahard.ai.combat
 
 import com.nanagokyuu.ultrahard.ai.AiSupport
+import java.util.WeakHashMap
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.monster.EnderMan
 import net.minecraft.world.entity.monster.Endermite
 import net.minecraft.world.entity.monster.Ravager
@@ -12,16 +14,56 @@ import net.minecraft.world.phys.Vec3
 
 /** 管理蜘蛛、卫道士、劫掠兽和末影类生物的特殊战术行为。 */
 internal object CombatAiSpecials {
+	/** 记录蜘蛛下一次允许扑击的时刻，弱引用避免卸载的蜘蛛占用状态表。 */
+	private val spiderLeapCooldowns = WeakHashMap<Spider, Long>()
+	/** 记录已经发起扑击的蜘蛛，避免同一次跃进还未结束时连续触发下一次扑击。 */
+	private val spiderLeaps = WeakHashMap<Spider, LeapState>()
+	private data class LeapState(val targetId: java.util.UUID, val expiresAt: Long)
+
 	@JvmStatic
 	fun tickSpider(spider: Spider) {
-		// 蜘蛛优先从玩家视线外接近；玩家正面举盾时，直接切换为绕盾路线。
-		if (!AiSupport.shouldUpdate(spider)) return
 		val target = spider.target ?: return
+		val level = AiSupport.ultraHardLevel(spider) ?: return
+		val now = level.gameTime
+		val leap = spiderLeaps[spider]
+		if (leap != null) {
+			// 扑击窗口内不再重复触发技能；落地后的伤害仍由原版近战目标负责。
+			if (now > leap.expiresAt || target.uuid != leap.targetId || !target.isAlive) {
+				spiderLeaps.remove(spider)
+			} else {
+				return
+			}
+		}
+		if (!AiSupport.shouldUpdate(spider)) return
+		// 蜘蛛优先从玩家视线外接近；玩家正面举盾时，直接切换为绕盾路线。
 		if (CombatAi.shouldFlankShield(spider, target)) {
 			CombatAi.flankShield(spider, target, 1.25)
+		} else if (trySpiderLeap(spider, target, level, now)) {
+			return
 		} else if (!AiSupport.isBlockingTarget(target) && target.distanceToSqr(spider) > 9.0) {
 			AiSupport.ambushApproach(spider, target, 2.5, 1.25)
 		}
+	}
+
+	/**
+	 * 在 4～8 格距离触发扑击，距离太近交给原版近战，距离太远则继续寻路。
+	 * 发起前检查视线、落地状态和预计跃进碰撞，避免蜘蛛在低顶或墙角反复起跳。
+	 */
+	private fun trySpiderLeap(spider: Spider, target: net.minecraft.world.entity.LivingEntity, level: ServerLevel, now: Long): Boolean {
+		if (!spider.onGround() || target !is Player || !target.isAlive || target.isCreative || target.isSpectator) return false
+		val distance = spider.distanceToSqr(target)
+		if (distance !in 16.0..64.0 || !spider.sensing.hasLineOfSight(target)) return false
+		if (now < (spiderLeapCooldowns[spider] ?: Long.MIN_VALUE)) return false
+		val direction = AiSupport.horizontalDirection(target.position().subtract(spider.position()))
+		val launch = direction.scale(0.62)
+		// 预计落点只做碰撞预检，不直接移动实体；真正的移动仍由原版物理处理。
+		if (!level.noCollision(spider, spider.boundingBox.move(launch).expandTowards(0.0, 0.8, 0.0))) return false
+		spider.navigation.stop()
+		spider.jumpFromGround()
+		spider.deltaMovement = Vec3(launch.x, maxOf(spider.deltaMovement.y, 0.42), launch.z)
+		spiderLeapCooldowns[spider] = now + 60L
+		spiderLeaps[spider] = LeapState(target.uuid, now + 12L)
+		return true
 	}
 
 	@JvmStatic

@@ -19,6 +19,12 @@
 				"adapter": "kotlin",
 				"value": "com.nanagokyuu.ultrahard.UltraHardMod"
 			}
+		],
+		"client": [
+			{
+				"adapter": "kotlin",
+				"value": "com.nanagokyuu.ultrahard.client.UltraHardClient"
+			}
 		]
 	},
 	"mixins": [

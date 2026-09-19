@@ -83,6 +83,8 @@ object UltraHardEvents {
 			val currentTick = server.overworld().gameTime
 			for (player in server.playerList.players) {
 				UltraHardKillStreak.trackGameMode(player)
+				// 每刻比较快照，但仅在数值或生效条件变化时发包，覆盖重生和难度切换。
+				UltraHardKillStreak.syncCombatExperience(player)
 				if (!UltraHardDifficulties.isUltraHard(player.level())) {
 					// 离开超困难后立即清空战斗经验，防止切回超困难时恢复旧的战斗收益。
 					UltraHardKillStreak.clear(player)
@@ -101,7 +103,6 @@ object UltraHardEvents {
 			UltraHardLifesteal.clearOffline(onlinePlayerIds)
 			UltraHardSleep.clearOffline(onlinePlayerIds)
 			UltraHardKillStreak.clearOffline(onlinePlayerIds)
-			server.allLevels.forEach { level -> UltraHardAi.tickTemporarySpiderWebs(level) }
 		}
 	}
 

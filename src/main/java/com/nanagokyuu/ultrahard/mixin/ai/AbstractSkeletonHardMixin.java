@@ -12,11 +12,11 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * 保留困难难度下的武器目标选择，并在出箭前复查侧方站位；箭矢散布只在超困难下按配置替换。
+	 * 保留困难难度下的武器目标选择，并在出箭前复查包围站位及友军挡箭；箭矢散布只在超困难下按配置替换。
  */
 @Mixin(AbstractSkeleton.class)
 public abstract class AbstractSkeletonHardMixin {
-	/** 让骷髅继续使用困难难度下的武器重评估规则。 */
+	/** 不改原版按武器选择弓箭/近战任务的规则，只让超困难沿用困难射击间隔。 */
 	@ModifyExpressionValue(
 			method = "reassessWeaponGoal",
 			at = @At(
@@ -31,7 +31,7 @@ public abstract class AbstractSkeletonHardMixin {
 	@org.spongepowered.asm.mixin.injection.Inject(method = "performRangedAttack", at = @At("HEAD"), cancellable = true)
 	private void ultrahard$flankShieldBeforeShooting(LivingEntity target, float pullProgress, CallbackInfo ci) {
 		AbstractSkeleton self = (AbstractSkeleton) (Object) this;
-		// 出箭时再次核对朝向，侧移不可达或超时则允许正面射击。
+		// 出箭时再次核对编队位置和射线安全性，包围路线不可达或超时才允许原位射击。
 		if (UltraHardAi.shouldFlankShield(self, target)) {
 			UltraHardAi.flankShield(self, target);
 			ci.cancel();

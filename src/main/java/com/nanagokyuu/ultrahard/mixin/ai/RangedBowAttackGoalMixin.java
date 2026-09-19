@@ -12,12 +12,21 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * 玩家正前方需要侧移时暂停原版弓箭目标更新，防止原版横移和蓄力逻辑覆盖自定义导航。
+ * 骷髅进入侧翼、后方或群体包围站位时暂停原版弓箭目标，避免横移覆盖编队导航。
  */
 @Mixin(RangedBowAttackGoal.class)
 public abstract class RangedBowAttackGoalMixin {
-	/** 原版弓箭 AI 会继续横移射击，因此需要在侧移期间暂时接管 tick。 */
+	/** 原版弓箭 AI 会继续横移射击，因此需要在编队移动期间暂时接管 tick。 */
 	@Shadow @Final private Monster mob;
+	@Shadow private boolean strafingBackwards;
+
+	/** 原版横移会把不可走台阶改为前进，因此在移动控制前保留后退意图并尝试越障。 */
+	@Inject(method = "tick", at = @At("TAIL"))
+	private void ultrahard$jumpBackwardOverStep(CallbackInfo ci) {
+		if (strafingBackwards && mob instanceof AbstractSkeleton skeleton) {
+			UltraHardAi.trySkeletonBackwardJump(skeleton);
+		}
+	}
 
 	@Inject(method = "tick", at = @At("HEAD"), cancellable = true)
 	private void ultrahard$prioritizeShieldFlanking(CallbackInfo ci) {

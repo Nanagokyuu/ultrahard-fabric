@@ -18,7 +18,9 @@ import net.minecraft.world.entity.monster.illager.Evoker
 import net.minecraft.world.entity.monster.illager.Pillager
 import net.minecraft.world.entity.monster.illager.Vindicator
 import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton
+import net.minecraft.world.entity.monster.skeleton.WitherSkeleton
 import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.Items
 import net.minecraft.world.phys.Vec3
 
 /**
@@ -29,16 +31,8 @@ import net.minecraft.world.phys.Vec3
 internal object AiSupport {
 	private data class FailedApproach(val targetId: UUID, val origin: Vec3, val retryAt: Long)
 	private val failedApproaches = WeakHashMap<Mob, FailedApproach>()
-	/** 同一玩家两次被铺网的最短间隔；200 游戏刻在正常刻速下为 10 秒。 */
-	internal const val SPIDER_WEB_COOLDOWN_TICKS = 200L
-	/** 临时蛛网的存活时间；清理时仍需确认该位置目前是蛛网。 */
-	internal const val SPIDER_WEB_DURATION_TICKS = 120L
 	/** 以女巫 UUID 累计近身投药阶段；当前实现不会因更换目标或拉开距离而重置。 */
 	internal val witchPotionSteps = HashMap<UUID, Int>()
-	/** 键为玩家 UUID，值为下一次允许铺网的时刻；不按蜘蛛或维度单独计冷却。 */
-	internal val spiderWebCooldowns = HashMap<UUID, Long>()
-	/** 先按世界实例分组，再记录坐标与到期时刻，避免不同维度相同坐标互相覆盖。 */
-	internal val temporarySpiderWebs = HashMap<ServerLevel, HashMap<BlockPos, Long>>()
 	/** 末影人成功主动瞬移后设置下次允许时刻；失败的落点尝试不会消耗冷却。 */
 	internal val endermanTeleportCooldowns = HashMap<UUID, Long>()
 
@@ -54,8 +48,14 @@ internal object AiSupport {
 
 	internal fun isScheduled(mob: Mob, interval: Int): Boolean = Math.floorMod(mob.tickCount.toLong() + mob.id, interval.toLong()) == 0L
 
-	/** 本模组的远程兵种共享射距控制，近战单位仍直接接近玩家。 */
-	internal fun isRangedCombatant(mob: Mob): Boolean = mob is AbstractSkeleton || mob is Pillager || mob is Witch || mob is Evoker
+	/** 两只手都检查，与原版持弓判断保持一致；兵种由当前装备决定，不由出生抽签永久决定。 */
+	internal fun isBowSkeleton(mob: Mob): Boolean = mob is AbstractSkeleton &&
+		(mob.mainHandItem.`is`(Items.BOW) || mob.offhandItem.`is`(Items.BOW))
+
+	/** 持弓凋灵骷髅与普通骷髅共享远程选敌和射距规则，未持弓者仍需检查近战可达性。 */
+	internal fun isRangedCombatant(mob: Mob): Boolean =
+		(mob is AbstractSkeleton && (mob !is WitherSkeleton || isBowSkeleton(mob))) ||
+			mob is Pillager || mob is Witch || mob is Evoker
 
 	internal fun isHostile(entity: Entity): Boolean = entity is Enemy || entity is Monster
 

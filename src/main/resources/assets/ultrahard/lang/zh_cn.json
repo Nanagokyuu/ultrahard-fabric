@@ -1,4 +1,6 @@
 {
+  "key.ultrahard.toggle_experience_preview": "显示/隐藏战斗经验进度",
+  "hud.ultrahard.combat_experience": "战斗经验 %s/%s (%s%%)",
   "enchantment.ultrahard.lifesteal": "吸血",
   "item.ultrahard.simple_bandage": "简易绷带",
   "item.ultrahard.nourishing_soup": "滋补汤",

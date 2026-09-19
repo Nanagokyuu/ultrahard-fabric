@@ -4,8 +4,11 @@ import com.nanagokyuu.ultrahard.UltraHardPlayerState
 import com.nanagokyuu.ultrahard.config.UltraHardConfigs
 import com.nanagokyuu.ultrahard.difficulty.UltraHardDifficulties
 import com.nanagokyuu.ultrahard.equipment.UltraHardEquipment
+import com.nanagokyuu.ultrahard.network.CombatExperiencePayload
 import java.util.UUID
+import java.util.WeakHashMap
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerLevel
@@ -24,6 +27,8 @@ import kotlin.math.ceil
 internal object UltraHardKillStreak {
 	/** 记录上一帧的游戏模式，用于检测进入创造或旁观并清空当前生命战斗经验。 */
 	private val previousGameModes = HashMap<UUID, GameType>()
+	/** 按玩家实体缓存上次同步值，重生或重登的新实体会自动收到完整快照。 */
+	private val syncedExperience = WeakHashMap<ServerPlayer, CombatExperiencePayload>()
 
 	fun register() {
 		// 生物死亡后再统计击杀，确保只有真正死亡的敌对生物才会增加战斗经验。
@@ -47,6 +52,19 @@ internal object UltraHardKillStreak {
 
 	}
 
+	/** 经验变化后立即同步，避免 HUD 等到下次击杀或重新登录才刷新。 */
+	fun syncCombatExperience(player: ServerPlayer) {
+		if (ServerPlayNetworking.canSend(player, CombatExperiencePayload.TYPE)) {
+			val config = UltraHardConfigs.values
+			val experience = (player as UltraHardPlayerState).ultrahardGetLifeCombatExperience()
+			val active = UltraHardDifficulties.isUltraHard(player.level()) && !player.isCreative && !player.isSpectator && player.isAlive
+			val payload = CombatExperiencePayload(experience, config.killDamageExperienceCap, active)
+			if (syncedExperience[player] == payload) return
+			ServerPlayNetworking.send(player, payload)
+			syncedExperience[player] = payload
+		}
+	}
+
 	/** 返回玩家当前生命累计的战斗经验。 */
 	private fun lifeCombatExperience(player: ServerPlayer): Int =
 		(player as UltraHardPlayerState).ultrahardGetLifeCombatExperience()
@@ -59,6 +77,7 @@ internal object UltraHardKillStreak {
 		val gainedExperience = if (isBoss(entity)) 1_000 else ceil((entity as net.minecraft.world.entity.LivingEntity).maxHealth.toDouble()).toInt().coerceIn(0, 100)
 		val newExperience = (oldExperience + gainedExperience).coerceAtMost(config.killDamageExperienceCap)
 		state.ultrahardSetLifeCombatExperience(newExperience)
+		syncCombatExperience(player)
 		val interval = config.killDamageExperienceMilestone
 		if (newExperience / interval <= oldExperience / interval) return
 
@@ -85,6 +104,7 @@ internal object UltraHardKillStreak {
 	private fun resetCombatExperience(player: ServerPlayer, message: String? = null) {
 		val state = player as UltraHardPlayerState
 		state.ultrahardSetLifeCombatExperience(0)
+		syncCombatExperience(player)
 		if (message != null) player.sendSystemMessage(Component.literal(message))
 	}
 

@@ -4,13 +4,16 @@ import com.nanagokyuu.ultrahard.config.UltraHardConfigs
 import com.nanagokyuu.ultrahard.difficulty.UltraHardDifficulties
 import com.nanagokyuu.ultrahard.enchantment.UltraHardEnchantments
 import com.nanagokyuu.ultrahard.events.UltraHardEvents
+import com.nanagokyuu.ultrahard.events.UltraHardKillStreak
 import com.nanagokyuu.ultrahard.raid.UltraHardRaidRewards
 import com.nanagokyuu.ultrahard.rules.UltraHardRulesBook
+import com.nanagokyuu.ultrahard.network.CombatExperiencePayload
 import com.nanagokyuu.ultrahard.recovery.UltraHardRecovery
 import com.nanagokyuu.ultrahard.recovery.UltraHardRecoveryItems
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents
 import net.fabricmc.fabric.api.loot.v3.LootTableEvents
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerLevel
@@ -31,12 +34,14 @@ object UltraHardMod : ModInitializer {
 	val LOGGER = LoggerFactory.getLogger(MOD_ID)
 
 	override fun onInitialize() {
+		PayloadTypeRegistry.clientboundPlay().register(CombatExperiencePayload.TYPE, CombatExperiencePayload.CODEC)
 		UltraHardConfigs.load()
 		val ultra = UltraHardDifficulties.ULTRAHARD
 		UltraHardRecoveryItems.register()
 		UltraHardRecovery.register()
 		UltraHardEvents.register()
 		ServerPlayerEvents.JOIN.register {
+			UltraHardKillStreak.syncCombatExperience(it)
 			UltraHardRecovery.syncSoupCooldown(it)
 			UltraHardRaidRewards.deliver(it)
 			UltraHardRulesBook.giveTo(it)

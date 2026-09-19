@@ -1,4 +1,6 @@
 {
+  "key.ultrahard.toggle_experience_preview": "Toggle Combat Experience Preview",
+  "hud.ultrahard.combat_experience": "Combat XP %s/%s (%s%%)",
   "enchantment.ultrahard.lifesteal": "Lifesteal",
   "item.ultrahard.simple_bandage": "Simple Bandage",
   "item.ultrahard.nourishing_soup": "Nourishing Soup",

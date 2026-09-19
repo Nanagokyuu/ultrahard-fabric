@@ -14,9 +14,7 @@ import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton;
 import net.minecraft.world.entity.monster.illager.Evoker;
 import net.minecraft.world.entity.monster.illager.Pillager;
 import net.minecraft.world.entity.monster.illager.Vindicator;
-import net.minecraft.world.entity.monster.spider.Spider;
 import net.minecraft.world.entity.monster.Ravager;
-import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -44,6 +42,7 @@ public abstract class MobHardMixin {
 	@Inject(method = "<init>", at = @At("TAIL"))
 	private void ultrahard$registerShelterGoal(CallbackInfo ci) {
 		UltraHardAi.registerUndeadShelter((Mob) (Object) this);
+		UltraHardAi.registerUndeadCombat((Mob) (Object) this);
 	}
 
 	@Inject(method = "aiStep", at = @At("TAIL"))
@@ -53,6 +52,7 @@ public abstract class MobHardMixin {
 		// 苦力怕的选敌、寻路与攻击完全交给原版任务。
 		if (self instanceof Creeper) return;
 		UltraHardAi.selectCombatTarget(self);
+		UltraHardAi.tryUndeadBackwardJump(self);
 		if (self instanceof AbstractSkeleton skeleton) {
 			UltraHardAi.tickSkeleton(skeleton);
 		}
@@ -107,18 +107,4 @@ public abstract class MobHardMixin {
 		}
 	}
 
-	@Inject(method = "doHurtTarget", at = @At("RETURN"))
-	private void ultrahard$placeCobwebOnSpiderHit(
-			ServerLevel level,
-			Entity target,
-			CallbackInfoReturnable<Boolean> cir
-	) {
-		Mob self = (Mob) (Object) this;
-		// 只在蜘蛛的近战攻击实际命中玩家后尝试放置蛛网，具体冷却和持续时间由 AI 管理。
-		if (!cir.getReturnValue() || !(self instanceof Spider) || !(target instanceof Player)
-				|| !UltraHardDifficulties.isUltraHard(level)) {
-			return;
-		}
-		UltraHardAi.placeSpiderWeb(level, (net.minecraft.server.level.ServerPlayer) target);
-	}
 }

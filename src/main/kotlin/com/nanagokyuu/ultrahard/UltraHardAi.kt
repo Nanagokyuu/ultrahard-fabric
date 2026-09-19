@@ -5,6 +5,9 @@ import com.nanagokyuu.ultrahard.ai.TargetingAi
 import com.nanagokyuu.ultrahard.ai.WorldAi
 import com.nanagokyuu.ultrahard.ai.combat.CombatAi
 import com.nanagokyuu.ultrahard.ai.combat.CombatAiSpecials
+import com.nanagokyuu.ultrahard.ai.combat.UndeadMovement
+import com.nanagokyuu.ultrahard.ai.combat.WitherSkeletonCombat
+import com.nanagokyuu.ultrahard.ai.combat.MixedUndeadFormation
 import net.minecraft.core.Holder
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
@@ -20,6 +23,7 @@ import net.minecraft.world.entity.monster.illager.Evoker
 import net.minecraft.world.entity.monster.illager.Pillager
 import net.minecraft.world.entity.monster.illager.Vindicator
 import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton
+import net.minecraft.world.entity.monster.skeleton.WitherSkeleton
 import net.minecraft.world.entity.monster.spider.Spider
 import net.minecraft.world.entity.monster.zombie.Zombie
 import net.minecraft.world.item.alchemy.Potion
@@ -31,6 +35,23 @@ import net.minecraft.world.item.alchemy.Potion
  * 保留 @JvmStatic，使 Java 注入代码可以直接调用静态方法，无需访问 Kotlin 单例字段。
  */
 object UltraHardAi {
+	/** 构造完成后安装游泳与专属近战任务，运行时再判断难度。 */
+	@JvmStatic
+	fun registerUndeadCombat(mob: Mob) {
+		if (mob is Zombie) MixedUndeadFormation.register(mob)
+		if (mob is AbstractSkeleton) UndeadMovement.registerSwimming(mob)
+		if (mob is WitherSkeleton) WitherSkeletonCombat.register(mob)
+	}
+
+	@JvmStatic
+	fun tryUndeadBackwardJump(mob: Mob): Unit = UndeadMovement.tryBackwardJump(mob)
+
+	@JvmStatic
+	fun trySkeletonBackwardJump(skeleton: AbstractSkeleton): Unit = UndeadMovement.tryBackwardJump(skeleton, true)
+
+	@JvmStatic
+	fun afterWitherSkeletonAttack(skeleton: WitherSkeleton, target: Entity): Unit = WitherSkeletonCombat.afterAttack(skeleton, target)
+
 	@JvmStatic
 	fun tickZombie(zombie: Zombie): Unit = CombatAi.tickZombie(zombie)
 
@@ -106,9 +127,4 @@ object UltraHardAi {
 	@JvmStatic
 	fun isNearbyPlayer(mob: Mob, player: LivingEntity?): Boolean = WorldAi.isNearbyPlayer(mob, player)
 
-	@JvmStatic
-	fun placeSpiderWeb(level: ServerLevel, player: ServerPlayer): Unit = WorldAi.placeSpiderWeb(level, player)
-
-	@JvmStatic
-	fun tickTemporarySpiderWebs(level: ServerLevel): Unit = WorldAi.tickTemporarySpiderWebs(level)
 }

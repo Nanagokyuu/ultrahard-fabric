@@ -17,10 +17,7 @@ import net.minecraft.world.entity.ai.goal.Goal
 import net.minecraft.world.entity.monster.Phantom
 import net.minecraft.world.phys.Vec3
 
-/**
- * 负责与世界环境相关的 AI：亡灵寻找避阳位置，以及蜘蛛产生的临时蛛网。
- * 蛛网只写入空气方块，到期只移除仍为蛛网的位置，不覆盖玩家随后放置的其他方块。
- */
+/** 负责与世界环境相关的 AI：亡灵寻找避阳位置。 */
 internal object WorldAi {
 	// 使用弱引用记录避阳状态，实体卸载后不阻止其被回收。
 	private val sheltering = WeakHashMap<Mob, Boolean>()
@@ -185,32 +182,4 @@ internal object WorldAi {
 		}
 	}
 
-	@JvmStatic
-	fun placeSpiderWeb(level: ServerLevel, player: ServerPlayer) {
-		val now = level.gameTime
-		if (AiSupport.spiderWebCooldowns[player.uuid]?.let { now < it } == true) return
-		val pos = player.blockPosition()
-		if (!level.getBlockState(pos).isAir) return
-
-		// 蜘蛛网只作为短暂控制技存在，并给同一玩家留出明确的脱困窗口。
-		level.setBlock(pos, net.minecraft.world.level.block.Blocks.COBWEB.defaultBlockState(), 3)
-		AiSupport.spiderWebCooldowns[player.uuid] = now + AiSupport.SPIDER_WEB_COOLDOWN_TICKS
-		AiSupport.temporarySpiderWebs.getOrPut(level) { HashMap() }[pos] = now + AiSupport.SPIDER_WEB_DURATION_TICKS
-	}
-
-	@JvmStatic
-	fun tickTemporarySpiderWebs(level: ServerLevel) {
-		val now = level.gameTime
-		val webs = AiSupport.temporarySpiderWebs[level] ?: return
-		// 先复制过期坐标再删除，避免遍历 Map 时修改集合。
-		val expired = webs.filterValues { it <= now }.keys.toList()
-		for (pos in expired) {
-			if (level.getBlockState(pos).`is`(net.minecraft.world.level.block.Blocks.COBWEB)) {
-				level.removeBlock(pos, false)
-			}
-			webs.remove(pos)
-		}
-		if (webs.isEmpty()) AiSupport.temporarySpiderWebs.remove(level)
-		AiSupport.spiderWebCooldowns.entries.removeIf { it.value <= now - AiSupport.SPIDER_WEB_COOLDOWN_TICKS }
-	}
 }

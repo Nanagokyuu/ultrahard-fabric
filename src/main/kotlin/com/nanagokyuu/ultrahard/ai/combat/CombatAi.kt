@@ -19,9 +19,9 @@ import net.minecraft.world.entity.monster.Witch
 import net.minecraft.world.entity.monster.illager.Evoker
 import net.minecraft.world.entity.monster.illager.Pillager
 import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton
+import net.minecraft.world.entity.monster.skeleton.WitherSkeleton
 import net.minecraft.world.entity.monster.zombie.Zombie
 import net.minecraft.world.entity.player.Player
-import net.minecraft.world.item.Items
 import net.minecraft.world.level.ClipContext
 import net.minecraft.world.level.pathfinder.Path
 import net.minecraft.world.phys.HitResult
@@ -40,6 +40,9 @@ internal object CombatAi {
 		var bestFacingDot: Double = 1.0,
 		var pressureUpdatedAt: Long = Long.MIN_VALUE,
 		var retreatRetryAt: Long = Long.MIN_VALUE,
+		var formationDestination: Vec3? = null,
+		var bestFormationDistance: Double = Double.MAX_VALUE,
+		var positioned: Boolean = false,
 	)
 	private val flankStates = WeakHashMap<Mob, FlankState>()
 	private data class ZombieGroup(val tick: Long, val origin: Vec3, val members: List<WeakReference<Zombie>>)
@@ -55,6 +58,8 @@ internal object CombatAi {
 		if (!target.isAlive) return
 
 		val config = UltraHardConfigs.values
+		// 混编由独立任务接管，避免这里的旧编队导航打断换位或原版近战出手。
+		if (MixedUndeadFormation.direction(zombie, target) != null) return
 		// 同一目标周围的僵尸共享十刻编队快照，弱引用成员不会反向保留目标实体。
 		val now = level.gameTime
 		var group = zombieGroups[target]
@@ -104,6 +109,12 @@ internal object CombatAi {
 
 	@JvmStatic
 	fun tickSkeleton(skeleton: AbstractSkeleton) {
+		// 只把未持弓的凋灵骷髅交给专属近战；持弓者完整复用普通骷髅的站位与退避。
+		if (skeleton is WitherSkeleton && !isBowSkeleton(skeleton)) {
+			// 换回近战时清掉之前的弓箭绕行/正面施压缓存，避免再次拿弓时继承旧导航。
+			flankStates.remove(skeleton)
+			return
+		}
 		if (AiSupport.ultraHardLevel(skeleton) == null || !AiSupport.shouldUpdate(skeleton)) return
 		val target = skeleton.target ?: return
 		if (shouldFlankShield(skeleton, target)) {
@@ -117,15 +128,41 @@ internal object CombatAi {
 		}
 	}
 
-	/** 持弓骷髅仅需避开玩家正前方，其它兵种仍在玩家举盾时尝试绕后。 */
+	/** 持弓骷髅主动进入包围站位，其它兵种仍仅在玩家举盾时尝试绕后。 */
 	@JvmStatic
 	fun shouldFlankShield(mob: Mob, target: LivingEntity): Boolean {
+		if (mob is WitherSkeleton && !isBowSkeleton(mob)) return false
+		if (mob is Zombie && MixedUndeadFormation.direction(mob, target) != null) return false
 		val bowSkeleton = isBowSkeleton(mob)
-		return shouldFlankTarget(mob, target, !bowSkeleton, if (bowSkeleton) 0.25 else -0.25)
+		// 弓箭即使没有正对玩家，只要射线会穿过友军，也先绕开挡箭的僵尸或骷髅。
+		return shouldFlankTarget(mob, target, !bowSkeleton, if (bowSkeleton) 0.25 else -0.25) ||
+			(bowSkeleton && hasFriendlyFireRisk(mob, target) && shouldFlankTarget(mob, target, false, -1.0))
 	}
 
-	private fun isBowSkeleton(mob: Mob): Boolean = mob is AbstractSkeleton
-		&& (mob.mainHandItem.`is`(Items.BOW) || mob.offhandItem.`is`(Items.BOW))
+	/**
+	 * 用箭矢预期的起点到目标眼睛做短步长采样。
+	 * 原版弹道会受重力影响，但近距离友军遮挡是主要误伤来源，水平射线足以筛掉危险方向。
+	 */
+	private fun hasFriendlyFireRisk(skeleton: Mob, target: LivingEntity): Boolean {
+		val start = skeleton.eyePosition
+		val end = target.eyePosition
+		val delta = end.subtract(start)
+		val distance = delta.length()
+		if (distance <= 0.5) return false
+		val steps = kotlin.math.ceil(distance / 0.2).toInt()
+		val candidates = skeleton.level().getEntities(skeleton, skeleton.boundingBox.expandTowards(delta).inflate(0.65)) {
+			it !== target && it.isAlive && (it is Zombie || it is AbstractSkeleton)
+		}
+		return candidates.any { ally ->
+			for (step in 1 until steps) {
+				val point = start.add(delta.scale(step.toDouble() / steps))
+				if (ally.boundingBox.inflate(0.12).contains(point)) return@any true
+			}
+			false
+		}
+	}
+
+	private fun isBowSkeleton(mob: Mob): Boolean = AiSupport.isBowSkeleton(mob)
 
 	private fun shouldFlankTarget(
 		mob: Mob,
@@ -135,13 +172,14 @@ internal object CombatAi {
 	): Boolean {
 		val level = AiSupport.ultraHardLevel(mob) ?: return false
 		if (WorldAi.isSheltering(mob)) return false
-		if (target !is Player || (requireShield && !target.isBlocking)) {
+		if (target !is Player || !target.isAlive || target.isCreative || target.isSpectator || (requireShield && !target.isBlocking)) {
 			flankStates.remove(mob)
 			return false
 		}
 		val relative = AiSupport.horizontalDirection(mob.position().subtract(target.position()))
 		val facingDot = AiSupport.shieldFacing(target).dot(relative)
-		if (facingDot < frontThreshold) {
+		val bowSkeleton = isBowSkeleton(mob)
+		if (!bowSkeleton && facingDot < frontThreshold) {
 			flankStates.remove(mob)
 			return false
 		}
@@ -155,9 +193,34 @@ internal object CombatAi {
 			state.checkedAt = Long.MIN_VALUE
 			state.lastProgressAt = now
 			state.bestFacingDot = facingDot
+			state.bestFormationDistance = Double.MAX_VALUE
+		}
+		if (bowSkeleton) {
+			val radius = maxOf(UltraHardConfigs.values.skeletonMinimumDistance + 1.0, UltraHardConfigs.values.skeletonRetreatDistance)
+			val destination = target.position().add(SkeletonFormation.direction(mob as AbstractSkeleton, target).scale(radius))
+			val offset = mob.position().subtract(destination)
+			val distance = offset.x * offset.x + offset.z * offset.z
+			// 到位与离位使用不同阈值，允许原版小幅横移和蓄力，不因轻微抖动反复停射。
+			if (distance <= (if (state.positioned) 9.0 else 2.25) && kotlin.math.abs(offset.y) <= 3.5 && mob.sensing.hasLineOfSight(target)) {
+				if (!state.positioned) mob.navigation.stop()
+				state.positioned = true
+				state.path = null
+				state.startedAt = now
+				state.lastProgressAt = now
+				state.checkedAt = Long.MIN_VALUE
+				state.bestFormationDistance = Double.MAX_VALUE
+				return false
+			}
+			state.positioned = false
+			state.formationDestination = destination
+			// 以离分配站位的距离衡量进展，绕到背后或正面牵制都不会被朝向点积误判。
+			if (distance < state.bestFormationDistance - 0.5) {
+				state.bestFormationDistance = distance
+				state.lastProgressAt = now
+			}
 		}
 		// 向背面推进时允许继续绕行；三秒无进展或总计六秒仍未完成才回退。
-		if (facingDot < state.bestFacingDot - 0.1) {
+		if (!bowSkeleton && facingDot < state.bestFacingDot - 0.1) {
 			state.bestFacingDot = facingDot
 			state.lastProgressAt = now
 		}
@@ -170,13 +233,29 @@ internal object CombatAi {
 			return state.path != null
 		}
 		state.checkedAt = now
-		state.path = findFlankPath(mob, target)
+		state.path = if (bowSkeleton) findFormationPath(mob, target, state.formationDestination!!) else findFlankPath(mob, target)
 		if (state.path == null) beginFrontalPressure(mob, target, state, now)
 		return state.path != null
 	}
 
 	private fun isFrontalPressureActive(mob: Mob): Boolean =
 		flankStates[mob]?.let { it.targetId == mob.target?.uuid && mob.level().gameTime < it.frontalUntil } == true
+
+	/** 只接受有支撑、无碰撞、有射界且完整可达的编队落点；在附近高度寻找地面。 */
+	private fun findFormationPath(mob: Mob, target: LivingEntity, destination: Vec3): Path? {
+		for (height in listOf(0, 1, -1, 2, -2, 3, -3)) {
+			val block = BlockPos.containing(destination).offset(0, height, 0)
+			val standing = Vec3(block.x + 0.5, block.y.toDouble(), block.z + 0.5)
+			val floor = block.below()
+			if (!mob.level().getBlockState(floor).isFaceSturdy(mob.level(), floor, Direction.UP)) continue
+			if (!mob.level().noCollision(mob, mob.boundingBox.move(standing.subtract(mob.position())))) continue
+			val eye = standing.add(0.0, mob.eyeHeight.toDouble(), 0.0)
+			if (mob.level().clip(ClipContext(eye, target.eyePosition, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mob)).type != HitResult.Type.MISS) continue
+			val path = mob.navigation.createPath(block, 0)
+			if (path != null && path.canReach()) return path
+		}
+		return null
+	}
 
 	/** 路径不可达或绕行超时都恢复原版攻击，不再取消挥击或蓄力。 */
 	private fun beginFrontalPressure(mob: Mob, target: LivingEntity, state: FlankState, now: Long) {
@@ -235,6 +314,7 @@ internal object CombatAi {
 
 	@JvmStatic
 	fun retreatSkeleton(skeleton: AbstractSkeleton, target: LivingEntity) {
+		if (skeleton is WitherSkeleton && !isBowSkeleton(skeleton)) return
 		if (AiSupport.ultraHardLevel(skeleton) == null) return
 		val config = UltraHardConfigs.values
 		val away = AiSupport.horizontalDirection(skeleton.position().subtract(target.position()))
