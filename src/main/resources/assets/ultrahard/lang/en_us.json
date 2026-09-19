@@ -1,5 +1,22 @@
 {
-	"enchantment.ultrahard.lifesteal": "Lifesteal",
-	"options.difficulty.ultrahard": "Ultra Hard",
-	"options.difficulty.ultrahard.info": "Based on Hard, plus: no natural regen, faster hunger, progression-scaled hostile damage, hostile-target soft caps, tactical hostile AI, fixed eighth-wave raids, and daily sleep healing."
+  "enchantment.ultrahard.lifesteal": "Lifesteal",
+  "item.ultrahard.simple_bandage": "Simple Bandage",
+  "item.ultrahard.nourishing_soup": "Nourishing Soup",
+  "effect.ultrahard.bandaged": "Bandage Recovery",
+  "effect.ultrahard.nourishing": "Nourishing Recovery",
+  "tooltip.ultrahard.simple_bandage.healing": "Gradually restores 4 health after combat",
+  "tooltip.ultrahard.simple_bandage.limit": "Uses for 3 seconds; interrupted by damage",
+  "tooltip.ultrahard.nourishing_soup.healing": "Gradually restores 8 health after combat",
+  "tooltip.ultrahard.nourishing_soup.limit": "Uses for 3 seconds; once per minute",
+  "tooltip.ultrahard.recovery_shared": "Cannot stack with the other recovery effect",
+  "message.ultrahard.bandage_interrupted": "The bandage was interrupted.",
+  "message.ultrahard.recovery_difficulty": "These recovery items only work in Ultra Hard.",
+  "message.ultrahard.recovery_unavailable": "You cannot recover right now.",
+  "message.ultrahard.already_recovering": "You are already recovering.",
+  "message.ultrahard.health_full": "Your health is full.",
+  "message.ultrahard.soup_cooldown": "Nourishing Soup is on cooldown.",
+  "message.ultrahard.soup_started": "You begin slowly drinking the Nourishing Soup.",
+  "message.ultrahard.bandage_started": "You begin bandaging your wounds.",
+  "options.difficulty.ultrahard": "Ultra Hard",
+  "options.difficulty.ultrahard.info": "Based on Hard, with no natural regeneration, faster hunger, progression-scaled enemies, attack soft caps, tactical enemy AI, a fixed eighth-wave raid, and daily sleep healing."
 }

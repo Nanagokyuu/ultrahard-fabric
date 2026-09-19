@@ -8,8 +8,8 @@ internal object UltraHardConfigValidation {
 	private val integerRanges = mapOf(
 		"configVersion" to 2..100,
 		"starvingAfterDays" to 0..36_500,
-		"killDamageReductionMaximumKills" to 1..100_000,
-		"killDamageMilestoneInterval" to 1..100_000,
+		"killDamageExperienceCap" to 1..1_000_000,
+		"killDamageExperienceMilestone" to 1..1_000_000,
 		"durabilityDamageMultiplier" to 1..16,
 		"lifestealMaximumRatioLevel" to 1..255,
 		"lifestealCooldownTicks" to 0..72_000,
@@ -33,7 +33,7 @@ internal object UltraHardConfigValidation {
 	private val fractionFields = setOf(
 		"playerAttackCapFraction", "playerAttackOverflowMultiplier", "lifestealBaseRatio",
 		"lifestealMaximumRatio", "eighthWaveEnchantedGoldenAppleChance", "armorDamageScaling",
-		"killDamageReductionPerKill", "killDamageMinimumMultiplier",
+		"killDamageReductionPerExperience", "killDamageMinimumMultiplier",
 	)
 
 	fun validate(source: JsonObject, defaults: JsonObject): JsonObject {

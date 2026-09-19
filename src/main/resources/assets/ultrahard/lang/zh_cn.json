@@ -1,5 +1,22 @@
 {
-	"enchantment.ultrahard.lifesteal": "吸血",
-	"options.difficulty.ultrahard": "超困难",
-	"options.difficulty.ultrahard.info": "基于困难，额外：无自然回血、饥饿加快、进度强化敌人、攻击软上限、敌人战术 AI、固定第八波袭击、每日睡眠治疗。"
+  "enchantment.ultrahard.lifesteal": "吸血",
+  "item.ultrahard.simple_bandage": "简易绷带",
+  "item.ultrahard.nourishing_soup": "滋补汤",
+  "effect.ultrahard.bandaged": "包扎恢复",
+  "effect.ultrahard.nourishing": "滋补恢复",
+  "tooltip.ultrahard.simple_bandage.healing": "脱战后持续恢复4点生命值",
+  "tooltip.ultrahard.simple_bandage.limit": "使用60刻；受伤会中断",
+  "tooltip.ultrahard.nourishing_soup.healing": "脱战后持续恢复8点生命值",
+  "tooltip.ultrahard.nourishing_soup.limit": "使用60刻；每分钟最多使用一次",
+  "tooltip.ultrahard.recovery_shared": "治疗效果不能与另一种恢复效果叠加",
+  "message.ultrahard.bandage_interrupted": "包扎被打断了。",
+  "message.ultrahard.recovery_difficulty": "只有超困难模式可以使用这种恢复物品。",
+  "message.ultrahard.recovery_unavailable": "现在无法进行治疗。",
+  "message.ultrahard.already_recovering": "你已经在进行恢复。",
+  "message.ultrahard.health_full": "你的生命值已满。",
+  "message.ultrahard.soup_cooldown": "滋补汤还在冷却中。",
+  "message.ultrahard.soup_started": "你开始慢慢喝下滋补汤。",
+  "message.ultrahard.bandage_started": "你开始包扎伤口。",
+  "options.difficulty.ultrahard": "超困难",
+  "options.difficulty.ultrahard.info": "基于困难，额外：无自然回血、饥饿加快、进度强化敌人、攻击软上限、敌人战术 AI、固定第八波袭击、每日睡眠治疗。"
 }

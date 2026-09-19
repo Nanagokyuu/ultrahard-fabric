@@ -6,6 +6,8 @@ import com.nanagokyuu.ultrahard.enchantment.UltraHardEnchantments
 import com.nanagokyuu.ultrahard.events.UltraHardEvents
 import com.nanagokyuu.ultrahard.raid.UltraHardRaidRewards
 import com.nanagokyuu.ultrahard.rules.UltraHardRulesBook
+import com.nanagokyuu.ultrahard.recovery.UltraHardRecovery
+import com.nanagokyuu.ultrahard.recovery.UltraHardRecoveryItems
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents
 import net.fabricmc.fabric.api.loot.v3.LootTableEvents
@@ -31,8 +33,11 @@ object UltraHardMod : ModInitializer {
 	override fun onInitialize() {
 		UltraHardConfigs.load()
 		val ultra = UltraHardDifficulties.ULTRAHARD
+		UltraHardRecoveryItems.register()
+		UltraHardRecovery.register()
 		UltraHardEvents.register()
 		ServerPlayerEvents.JOIN.register {
+			UltraHardRecovery.syncSoupCooldown(it)
 			UltraHardRaidRewards.deliver(it)
 			UltraHardRulesBook.giveTo(it)
 		}

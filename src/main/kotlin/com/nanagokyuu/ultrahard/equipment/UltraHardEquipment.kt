@@ -25,7 +25,7 @@ object UltraHardEquipment {
 		netheriteArmor.forEach { put(it, 5) }
 	}
 
-	/** 将当前护甲倍率与本次生命的击杀倍率相乘；护甲额外倍率默认最多为 80%。 */
+	/** 将当前护甲倍率与本次生命的战斗经验倍率相乘；护甲额外倍率默认最多为 80%。 */
 	fun enemyDamageMultiplier(player: Player): Float {
 		val config = UltraHardConfigs.values
 		// 只使用护甲值，不使用护甲韧性，因此满钻石甲和满下界合金甲均为 1.8 倍。
@@ -36,12 +36,12 @@ object UltraHardEquipment {
 		return (1.0f + armorBonus) * killMultiplier
 	}
 
-	/** 根据当前生命的击杀数降低敌人伤害，最多降低 25%。 */
+	/** 根据当前生命的战斗经验降低敌人伤害，最多降低25%。 */
 	fun killDamageMultiplier(player: Player): Float {
 		val state = player as? UltraHardPlayerState ?: return 1.0f
 		val config = UltraHardConfigs.values
-		val kills = state.ultrahardGetLifeKills().coerceAtMost(config.killDamageReductionMaximumKills)
-		val reduction = kills * config.killDamageReductionPerKill
+		val experience = state.ultrahardGetLifeCombatExperience().coerceAtMost(config.killDamageExperienceCap)
+		val reduction = experience * config.killDamageReductionPerExperience
 		return (1.0f - reduction).coerceAtLeast(config.killDamageMinimumMultiplier)
 	}
 

@@ -25,14 +25,52 @@ import net.minecraft.world.item.alchemy.Potions
  * 药水弹道保留原版发射方式；只在满足近身玩家条件时接管女巫药水选择。
  */
 internal object RangedAi {
+	private data class CreeperFlankState(val targetId: java.util.UUID, var failedAttempts: Int = 0)
+	private val creeperFlankStates = java.util.WeakHashMap<Creeper, CreeperFlankState>()
+
 	@JvmStatic
 	fun tickCreeperShield(creeper: Creeper) {
 		AiSupport.ultraHardLevel(creeper) ?: return
-		if (!shouldFlankCreeperShield(creeper)) return
-		val target = creeper.target as Player
-		// 只有可达且未超时的绕盾路线才暂停引爆；狭窄地形保留正面爆炸压力。
-		creeper.swellDir = -1
-		CombatAi.flankShield(creeper, target, UltraHardConfigs.values.creeperEvacuationSpeed)
+		val target = creeper.target as? Player
+		if (target == null || !target.isAlive || !target.isBlocking) {
+			creeperFlankStates.remove(creeper)
+			return
+		}
+		// 引爆计时被暂停时保留尝试状态，等待原版下一次重新进入引爆阶段。
+		if (creeper.swellDir <= 0) return
+		if (!isFacingShield(creeper, target)) {
+			creeperFlankStates.remove(creeper)
+			return
+		}
+		val state = creeperFlankStates[creeper]?.takeIf { it.targetId == target.uuid }
+			?: CreeperFlankState(target.uuid).also { creeperFlankStates[creeper] = it }
+		// 第二次失败后不再取消引爆，直接让原版苦力怕爆炸。
+		if (state.failedAttempts >= MAX_FLANK_FAILURES) return
+
+		if (CombatAi.shouldFlankShield(creeper, target)) {
+			// 只有真正进入绕盾流程时才暂停引爆；失败次数由下方的失败状态检查增加。
+			creeper.swellDir = -1
+			CombatAi.flankShield(creeper, target, UltraHardConfigs.values.creeperEvacuationSpeed)
+			recordCreeperFlankFailure(creeper, target, state)
+			return
+		}
+
+		recordCreeperFlankFailure(creeper, target, state)
+	}
+
+	/** 将一次路径不可达或绕行超时记为失败；第二次失败后保留原版引爆状态。 */
+	private fun recordCreeperFlankFailure(
+		creeper: Creeper,
+		target: Player,
+		state: CreeperFlankState,
+	) {
+		if (!CombatAi.flankAttemptFailed(creeper, target)) return
+		state.failedAttempts++
+		if (state.failedAttempts < MAX_FLANK_FAILURES) {
+			// 第一次失败后清掉通用状态，下一次引爆阶段重新寻找绕后路线。
+			CombatAi.resetFlankState(creeper)
+			creeper.swellDir = -1
+		}
 	}
 
 	@JvmStatic
@@ -40,11 +78,14 @@ internal object RangedAi {
 		AiSupport.ultraHardLevel(creeper) ?: return false
 		val target = creeper.target as? Player ?: return false
 		if (!target.isAlive || !target.isBlocking || creeper.swellDir <= 0) return false
+		if (!isFacingShield(creeper, target)) return false
+		return creeperFlankStates[creeper]?.let { it.targetId == target.uuid && it.failedAttempts < MAX_FLANK_FAILURES } != false
+	}
 
+	private fun isFacingShield(creeper: Creeper, target: Player): Boolean {
 		val toTarget = AiSupport.horizontalDirection(target.position().subtract(creeper.position()))
 		// 只有苦力怕确实朝向玩家时，举盾才会让它改变战术。
-		if (AiSupport.horizontalDirection(creeper.lookAngle).dot(toTarget) < 0.25) return false
-		return CombatAi.shouldFlankShield(creeper, target)
+		return AiSupport.horizontalDirection(creeper.lookAngle).dot(toTarget) >= 0.25
 	}
 
 	@JvmStatic
@@ -158,4 +199,6 @@ internal object RangedAi {
 		level.playSound(null, witch.x, witch.y, witch.z, SoundEvents.WITCH_THROW, witch.soundSource, 1.0f, 1.0f)
 		return true
 	}
+
+	private const val MAX_FLANK_FAILURES = 2
 }

@@ -49,6 +49,14 @@ object UltraHardConfigs {
 			for (key in listOf("enemyDamageBaseMultiplier", "enemyDamageAfterIronMultiplier", "enemyDamageAfterDiamondMultiplier", "sleepHealingAmount")) {
 				if (configJson.remove(key) != null) changed = true
 			}
+			// 4 版将当前生命的击杀数量改为按怪物生命值累计的战斗经验。
+			if (configJson.get("configVersion")?.asInt ?: 0 < 4) {
+				for (key in listOf("killDamageReductionPerKill", "killDamageReductionMaximumKills", "killDamageMilestoneInterval")) {
+					if (configJson.remove(key) != null) changed = true
+				}
+				configJson.addProperty("configVersion", 4)
+				changed = true
+			}
 			if (addMissingDefaults(configJson, defaults)) changed = true
 			if (changed) {
 				Files.newBufferedWriter(path).use { writer: Writer -> gson.toJson(configJson, writer) }

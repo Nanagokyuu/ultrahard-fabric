@@ -5,6 +5,7 @@ import com.nanagokyuu.ultrahard.UltraHardPlayerState
 import com.nanagokyuu.ultrahard.config.UltraHardConfigs
 import com.nanagokyuu.ultrahard.difficulty.UltraHardDifficulties
 import com.nanagokyuu.ultrahard.equipment.UltraHardEquipment
+import com.nanagokyuu.ultrahard.recovery.UltraHardRecovery
 import kotlin.math.floor
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
@@ -83,7 +84,7 @@ object UltraHardEvents {
 			for (player in server.playerList.players) {
 				UltraHardKillStreak.trackGameMode(player)
 				if (!UltraHardDifficulties.isUltraHard(player.level())) {
-					// 离开超困难后立即清空连击，防止切回超困难时恢复旧的战斗收益。
+					// 离开超困难后立即清空战斗经验，防止切回超困难时恢复旧的战斗收益。
 					UltraHardKillStreak.clear(player)
 					// 切换离开 Ultra Hard 时，不能把旧难度的待结算吸血带回去。
 					UltraHardLifesteal.clear(player)
@@ -133,9 +134,11 @@ object UltraHardEvents {
 		val newState = newPlayer as UltraHardPlayerState
 		newState.ultrahardSetLastFoodTick(oldState.ultrahardGetLastFoodTick())
 		newState.ultrahardSetLastSleepHealingDay(oldState.ultrahardGetLastSleepHealingDay())
-		// 正常重生时死亡事件已经清零；非死亡替换则保留当前生命的击杀数。
-		newState.ultrahardSetLifeKills(if (oldPlayer.isAlive) oldState.ultrahardGetLifeKills() else 0)
+		// 正常重生时死亡事件已经清零；非死亡替换则保留当前生命的战斗经验。
+		newState.ultrahardSetLifeCombatExperience(if (oldPlayer.isAlive) oldState.ultrahardGetLifeCombatExperience() else 0)
 		newState.ultrahardSetReceivedRulesBook(oldState.ultrahardHasReceivedRulesBook())
+		newState.ultrahardSetSoupCooldownUntil(oldState.ultrahardGetSoupCooldownUntil())
+		UltraHardRecovery.syncSoupCooldown(newPlayer)
 	}
 
 	private fun isHostile(entity: Entity?): Boolean {

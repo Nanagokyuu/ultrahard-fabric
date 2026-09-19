@@ -5,7 +5,7 @@ package com.nanagokyuu.ultrahard.config
  */
 data class UltraHardConfig(
 	// 用于一次性迁移旧默认值；后续读取不覆盖玩家自行调整过的配置。
-	val configVersion: Int = 3,
+	val configVersion: Int = 4,
 	// 消耗倍率作用于 exhaustion，不是每次直接扣除饥饿条；未进食天数按每昼夜 24000 游戏刻换算。
 	val hungerExhaustionMultiplier: Float = 1.25f,
 	val starvingExhaustionMultiplier: Float = 1.75f,
@@ -23,11 +23,11 @@ data class UltraHardConfig(
 	val sleepHealingFraction: Float = 0.4f,
 	val sleepHealingMinimum: Float = 6.0f,
 	val sleepHealingMaximum: Float = 12.0f,
-	// 当前生命的有效击杀数用于降低敌人伤害；死亡或切换到创造/旁观后清零。
-	val killDamageReductionPerKill: Float = 0.005f,
-	val killDamageReductionMaximumKills: Int = 50,
+	// 当前生命的战斗经验用于降低敌人伤害；死亡或切换到创造/旁观后清零。
+	val killDamageReductionPerExperience: Float = 0.000125f,
+	val killDamageExperienceCap: Int = 2_000,
 	val killDamageMinimumMultiplier: Float = 0.75f,
-	val killDamageMilestoneInterval: Int = 10,
+	val killDamageExperienceMilestone: Int = 200,
 	// 未达封顶等级时，吸血比例为基础比例乘以“等级 + 1”；达到封顶等级则直接使用最大比例。
 	val lifestealBaseRatio: Float = 0.1f,
 	val lifestealMaximumRatioLevel: Int = 9,

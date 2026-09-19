@@ -17,8 +17,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class ServerPlayerStateMixin implements UltraHardPlayerState {
 	@Unique private long ultrahard$lastFoodTick = Long.MIN_VALUE;
 	@Unique private long ultrahard$lastSleepHealingDay = Long.MIN_VALUE;
-	@Unique private int ultrahard$lifeKills;
+	@Unique private int ultrahard$lifeCombatExperience;
 	@Unique private boolean ultrahard$receivedRulesBook;
+	@Unique private long ultrahard$soupCooldownUntil;
 
 	@Inject(method = "readAdditionalSaveData", at = @At("TAIL"))
 	private void ultrahard$readState(ValueInput input, CallbackInfo ci) {
@@ -26,24 +27,32 @@ public abstract class ServerPlayerStateMixin implements UltraHardPlayerState {
 		ultrahard$lastFoodTick = input.getLongOr("UltraHardLastFoodTick", Long.MIN_VALUE);
 		// 旧值使用 gameTime，不能与新的昼夜日期混用。
 		ultrahard$lastSleepHealingDay = input.getLongOr("UltraHardLastSleepHealingCalendarDay", Long.MIN_VALUE);
-		ultrahard$lifeKills = input.getIntOr("UltraHardLifeKills", 0);
+		// 旧存档的每次击杀按20点生命值折算，保持原有进度大致不变。
+		ultrahard$lifeCombatExperience = input.getIntOr(
+			"UltraHardLifeCombatExperience",
+			input.getIntOr("UltraHardLifeKills", 0) * 20
+		);
 		ultrahard$receivedRulesBook = input.getBooleanOr("UltraHardReceivedRulesBook", false);
+		ultrahard$soupCooldownUntil = input.getLongOr("UltraHardSoupCooldownUntil", 0L);
 	}
 
 	@Inject(method = "addAdditionalSaveData", at = @At("TAIL"))
 	private void ultrahard$writeState(ValueOutput output, CallbackInfo ci) {
 		output.putLong("UltraHardLastFoodTick", ultrahard$lastFoodTick);
 		output.putLong("UltraHardLastSleepHealingCalendarDay", ultrahard$lastSleepHealingDay);
-		output.putInt("UltraHardLifeKills", ultrahard$lifeKills);
+		output.putInt("UltraHardLifeCombatExperience", ultrahard$lifeCombatExperience);
 		output.putBoolean("UltraHardReceivedRulesBook", ultrahard$receivedRulesBook);
+		output.putLong("UltraHardSoupCooldownUntil", ultrahard$soupCooldownUntil);
 	}
 
 	@Override public long ultrahardGetLastFoodTick() { return ultrahard$lastFoodTick; }
 	@Override public void ultrahardSetLastFoodTick(long value) { ultrahard$lastFoodTick = value; }
 	@Override public long ultrahardGetLastSleepHealingDay() { return ultrahard$lastSleepHealingDay; }
 	@Override public void ultrahardSetLastSleepHealingDay(long value) { ultrahard$lastSleepHealingDay = value; }
-	@Override public int ultrahardGetLifeKills() { return ultrahard$lifeKills; }
-	@Override public void ultrahardSetLifeKills(int value) { ultrahard$lifeKills = Math.max(0, value); }
+	@Override public int ultrahardGetLifeCombatExperience() { return ultrahard$lifeCombatExperience; }
+	@Override public void ultrahardSetLifeCombatExperience(int value) { ultrahard$lifeCombatExperience = Math.max(0, value); }
 	@Override public boolean ultrahardHasReceivedRulesBook() { return ultrahard$receivedRulesBook; }
 	@Override public void ultrahardSetReceivedRulesBook(boolean value) { ultrahard$receivedRulesBook = value; }
+	@Override public long ultrahardGetSoupCooldownUntil() { return ultrahard$soupCooldownUntil; }
+	@Override public void ultrahardSetSoupCooldownUntil(long value) { ultrahard$soupCooldownUntil = value; }
 }

@@ -207,6 +207,17 @@ internal object CombatAi {
 	fun shouldCancelShieldedMelee(mob: Mob, target: Entity): Boolean =
 		target is LivingEntity && shouldFlankShield(mob, target)
 
+	/** 返回最近一次绕盾是否因为路径或进度失败而进入正面施压状态。 */
+	internal fun flankAttemptFailed(mob: Mob, target: LivingEntity): Boolean =
+		flankStates[mob]?.let {
+			it.targetId == target.uuid && it.path == null && it.frontalUntil != Long.MIN_VALUE
+		} == true
+
+	/** 清除一次失败的通用绕盾状态，让苦力怕可以开始下一次独立尝试。 */
+	internal fun resetFlankState(mob: Mob) {
+		flankStates.remove(mob)
+	}
+
 	@JvmStatic
 	fun retreatSkeleton(skeleton: AbstractSkeleton, target: LivingEntity) {
 		if (AiSupport.ultraHardLevel(skeleton) == null) return

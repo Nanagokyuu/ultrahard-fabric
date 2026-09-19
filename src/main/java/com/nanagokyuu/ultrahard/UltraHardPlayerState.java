@@ -12,10 +12,13 @@ public interface UltraHardPlayerState {
 	/** 上一次睡眠治疗结算对应的主世界昼夜日期。 */
 	long ultrahardGetLastSleepHealingDay();
 	void ultrahardSetLastSleepHealingDay(long value);
-	/** 当前生命累计的有效击杀数；死亡或切换到创造/旁观后清零。 */
-	int ultrahardGetLifeKills();
-	void ultrahardSetLifeKills(int value);
+	/** 当前生命累计的战斗经验；死亡或切换到创造/旁观后清零。 */
+	int ultrahardGetLifeCombatExperience();
+	void ultrahardSetLifeCombatExperience(int value);
 	/** 是否已经向玩家发放过规则书。 */
 	boolean ultrahardHasReceivedRulesBook();
 	void ultrahardSetReceivedRulesBook(boolean value);
+	/** 滋补汤冷却结束的主世界运行刻，重登和重生不刷新。 */
+	long ultrahardGetSoupCooldownUntil();
+	void ultrahardSetSoupCooldownUntil(long value);
 }
