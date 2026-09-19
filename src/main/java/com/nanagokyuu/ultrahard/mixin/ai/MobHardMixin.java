@@ -9,6 +9,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.EnderMan;
+import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton;
 import net.minecraft.world.entity.monster.illager.Evoker;
 import net.minecraft.world.entity.monster.illager.Pillager;
@@ -39,12 +40,19 @@ public abstract class MobHardMixin {
 		return UltraHardDifficulties.asHardCompatible(original);
 	}
 
+	/** 构造结束后注册环境任务，避免在原版目标选择器初始化前访问它。 */
+	@Inject(method = "<init>", at = @At("TAIL"))
+	private void ultrahard$registerShelterGoal(CallbackInfo ci) {
+		UltraHardAi.registerUndeadShelter((Mob) (Object) this);
+	}
+
 	@Inject(method = "aiStep", at = @At("TAIL"))
 	private void ultrahard$seekDaytimeShelter(CallbackInfo ci) {
-		// 在通用 Mob AI 步骤末尾统一处理目标选择、亡灵避阳和骷髅控距。
+		// 在通用 Mob AI 步骤末尾统一处理目标选择和兵种战术。
 		Mob self = (Mob) (Object) this;
+		// 苦力怕的选敌、寻路与攻击完全交给原版任务。
+		if (self instanceof Creeper) return;
 		UltraHardAi.selectCombatTarget(self);
-		UltraHardAi.tickUndeadShelter(self);
 		if (self instanceof AbstractSkeleton skeleton) {
 			UltraHardAi.tickSkeleton(skeleton);
 		}
@@ -70,6 +78,8 @@ public abstract class MobHardMixin {
 			CallbackInfoReturnable<Boolean> cir
 	) {
 		Mob self = (Mob) (Object) this;
+		// 苦力怕的选敌、寻路与攻击完全交给原版任务。
+		if (self instanceof Creeper) return;
 		// 近战攻击落在盾牌正面时取消本次攻击，并让怪物重新寻找突破角度。
 		if (!UltraHardDifficulties.isUltraHard(level) || !UltraHardAi.shouldCancelShieldedMelee(self, target)) return;
 		if (self instanceof EnderMan enderman) {
@@ -84,6 +94,8 @@ public abstract class MobHardMixin {
 	@Inject(method = "setTarget", at = @At("HEAD"), cancellable = true)
 	private void ultrahard$ignoreHostileRetaliation(LivingEntity target, CallbackInfo ci) {
 		Mob self = (Mob) (Object) this;
+		// 苦力怕的选敌、寻路与攻击完全交给原版任务。
+		if (self instanceof Creeper) return;
 		// 仇恨模块的短期目标锁覆盖原版报复任务，避免两套目标逻辑来回抢占。
 		if (UltraHardAi.shouldKeepCombatTarget(self, target)) {
 			ci.cancel();

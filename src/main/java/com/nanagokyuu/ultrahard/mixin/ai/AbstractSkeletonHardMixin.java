@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * 保留困难难度下的武器目标选择，并在出箭前复查盾牌朝向；箭矢散布只在超困难下按配置替换。
+ * 保留困难难度下的武器目标选择，并在出箭前复查侧方站位；箭矢散布只在超困难下按配置替换。
  */
 @Mixin(AbstractSkeleton.class)
 public abstract class AbstractSkeletonHardMixin {
@@ -31,7 +31,7 @@ public abstract class AbstractSkeletonHardMixin {
 	@org.spongepowered.asm.mixin.injection.Inject(method = "performRangedAttack", at = @At("HEAD"), cancellable = true)
 	private void ultrahard$flankShieldBeforeShooting(LivingEntity target, float pullProgress, CallbackInfo ci) {
 		AbstractSkeleton self = (AbstractSkeleton) (Object) this;
-		// 出箭时再次核对朝向，防止玩家在骷髅蓄力期间转身举盾后仍被正面射击。
+		// 出箭时再次核对朝向，侧移不可达或超时则允许正面射击。
 		if (UltraHardAi.shouldFlankShield(self, target)) {
 			UltraHardAi.flankShield(self, target);
 			ci.cancel();

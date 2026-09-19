@@ -12,11 +12,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * 盾牌正面需要绕行时暂停原版弓箭目标更新，防止原版横移和蓄力逻辑覆盖自定义导航。
+ * 玩家正前方需要侧移时暂停原版弓箭目标更新，防止原版横移和蓄力逻辑覆盖自定义导航。
  */
 @Mixin(RangedBowAttackGoal.class)
 public abstract class RangedBowAttackGoalMixin {
-	/** 原版弓箭 AI 会继续横移射击，因此需要在盾牌目标出现时暂时接管 tick。 */
+	/** 原版弓箭 AI 会继续横移射击，因此需要在侧移期间暂时接管 tick。 */
 	@Shadow @Final private Monster mob;
 
 	@Inject(method = "tick", at = @At("HEAD"), cancellable = true)

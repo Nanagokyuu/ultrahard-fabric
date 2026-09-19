@@ -1,16 +1,17 @@
 package com.nanagokyuu.ultrahard.ai.combat
 
 import com.nanagokyuu.ultrahard.ai.AiSupport
+import com.nanagokyuu.ultrahard.ai.WorldAi
 import com.nanagokyuu.ultrahard.config.UltraHardConfigs
 import java.lang.ref.WeakReference
 import java.util.UUID
 import java.util.WeakHashMap
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.Mob
-import net.minecraft.world.entity.monster.Creeper
 import net.minecraft.world.entity.monster.Endermite
 import net.minecraft.world.entity.monster.Ravager
 import net.minecraft.world.entity.monster.Silverfish
@@ -20,7 +21,10 @@ import net.minecraft.world.entity.monster.illager.Pillager
 import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton
 import net.minecraft.world.entity.monster.zombie.Zombie
 import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.Items
+import net.minecraft.world.level.ClipContext
 import net.minecraft.world.level.pathfinder.Path
+import net.minecraft.world.phys.HitResult
 import net.minecraft.world.phys.Vec3
 
 /** 负责目标偏好、群体站位、盾牌绕行和近战接敌；不同兵种复用相同的水平几何规则。 */
@@ -113,16 +117,31 @@ internal object CombatAi {
 		}
 	}
 
+	/** 持弓骷髅仅需避开玩家正前方，其它兵种仍在玩家举盾时尝试绕后。 */
 	@JvmStatic
 	fun shouldFlankShield(mob: Mob, target: LivingEntity): Boolean {
+		val bowSkeleton = isBowSkeleton(mob)
+		return shouldFlankTarget(mob, target, !bowSkeleton, if (bowSkeleton) 0.25 else -0.25)
+	}
+
+	private fun isBowSkeleton(mob: Mob): Boolean = mob is AbstractSkeleton
+		&& (mob.mainHandItem.`is`(Items.BOW) || mob.offhandItem.`is`(Items.BOW))
+
+	private fun shouldFlankTarget(
+		mob: Mob,
+		target: LivingEntity,
+		requireShield: Boolean,
+		frontThreshold: Double,
+	): Boolean {
 		val level = AiSupport.ultraHardLevel(mob) ?: return false
-		if (target !is Player || !target.isBlocking) {
+		if (WorldAi.isSheltering(mob)) return false
+		if (target !is Player || (requireShield && !target.isBlocking)) {
 			flankStates.remove(mob)
 			return false
 		}
 		val relative = AiSupport.horizontalDirection(mob.position().subtract(target.position()))
 		val facingDot = AiSupport.shieldFacing(target).dot(relative)
-		if (facingDot < -0.25) {
+		if (facingDot < frontThreshold) {
 			flankStates.remove(mob)
 			return false
 		}
@@ -159,7 +178,7 @@ internal object CombatAi {
 	private fun isFrontalPressureActive(mob: Mob): Boolean =
 		flankStates[mob]?.let { it.targetId == mob.target?.uuid && mob.level().gameTime < it.frontalUntil } == true
 
-	/** 路径不可达或绕行超时都恢复原版攻击，不再取消挥击、蓄力或引爆。 */
+	/** 路径不可达或绕行超时都恢复原版攻击，不再取消挥击或蓄力。 */
 	private fun beginFrontalPressure(mob: Mob, target: LivingEntity, state: FlankState, now: Long) {
 		state.path = null
 		state.frontalUntil = now + FRONTAL_PRESSURE_TICKS
@@ -174,7 +193,6 @@ internal object CombatAi {
 			is Pillager -> 8.0
 			is Evoker -> 7.0
 			is Witch -> UltraHardConfigs.values.witchBacklineDistance
-			is Creeper -> UltraHardConfigs.values.creeperEvacuationDistance.coerceAtLeast(3.0)
 			is Ravager -> 4.0
 			is Silverfish, is Endermite -> 2.5
 			else -> 3.0
@@ -184,12 +202,20 @@ internal object CombatAi {
 		val relative = mob.position().subtract(target.position())
 		val side = if (relative.dot(left) >= 0.0) 1.0 else -1.0
 		for (direction in listOf(side, -side)) {
-			val waypoint = if (AiSupport.horizontalDirection(relative).dot(facing) > 0.25) {
+			val waypoint = if (isBowSkeleton(mob) || AiSupport.horizontalDirection(relative).dot(facing) > 0.25) {
 				left.scale(direction * radius)
 			} else facing.scale(-radius).add(left.scale(direction * radius * 0.5))
 			val destination = target.position().add(waypoint)
 			val offset = destination.subtract(mob.position())
 			if (!mob.level().noCollision(mob, mob.boundingBox.move(offset))) continue
+			// 骷髅侧方射击点必须有站立面且射界通畅，狭窄地形交回正面攻击。
+			if (isBowSkeleton(mob)) {
+				val floor = BlockPos.containing(destination).below()
+				if (!mob.level().getBlockState(floor).isFaceSturdy(mob.level(), floor, Direction.UP)) continue
+				val eye = destination.add(0.0, mob.eyeHeight.toDouble(), 0.0)
+				val sight = mob.level().clip(ClipContext(eye, target.eyePosition, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mob))
+				if (sight.type != HitResult.Type.MISS) continue
+			}
 			val path = mob.navigation.createPath(BlockPos.containing(destination), 0)
 			if (path != null && path.canReach()) return path
 		}
@@ -206,17 +232,6 @@ internal object CombatAi {
 
 	fun shouldCancelShieldedMelee(mob: Mob, target: Entity): Boolean =
 		target is LivingEntity && shouldFlankShield(mob, target)
-
-	/** 返回最近一次绕盾是否因为路径或进度失败而进入正面施压状态。 */
-	internal fun flankAttemptFailed(mob: Mob, target: LivingEntity): Boolean =
-		flankStates[mob]?.let {
-			it.targetId == target.uuid && it.path == null && it.frontalUntil != Long.MIN_VALUE
-		} == true
-
-	/** 清除一次失败的通用绕盾状态，让苦力怕可以开始下一次独立尝试。 */
-	internal fun resetFlankState(mob: Mob) {
-		flankStates.remove(mob)
-	}
 
 	@JvmStatic
 	fun retreatSkeleton(skeleton: AbstractSkeleton, target: LivingEntity) {

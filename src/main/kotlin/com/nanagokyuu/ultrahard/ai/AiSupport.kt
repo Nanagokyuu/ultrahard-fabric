@@ -49,7 +49,8 @@ internal object AiSupport {
 	}
 
 	/** 混合实体编号错开同批生成怪物的更新时刻，避免搜索集中在同一帧。 */
-	internal fun shouldUpdate(mob: Mob): Boolean = isScheduled(mob, UltraHardConfigs.values.aiUpdateIntervalTicks)
+	/** 避阳期间不让战术导航覆盖停留目标，其余实体按编号错峰更新。 */
+	internal fun shouldUpdate(mob: Mob): Boolean = !WorldAi.isSheltering(mob) && isScheduled(mob, UltraHardConfigs.values.aiUpdateIntervalTicks)
 
 	internal fun isScheduled(mob: Mob, interval: Int): Boolean = Math.floorMod(mob.tickCount.toLong() + mob.id, interval.toLong()) == 0L
 
@@ -62,6 +63,7 @@ internal object AiSupport {
 		entity is Pillager || entity is Vindicator || entity is Evoker || entity is Ravager
 
 	internal fun moveTo(mob: Mob, destination: Vec3, speed: Double) {
+		if (WorldAi.isSheltering(mob)) return
 		mob.navigation.moveTo(destination.x, destination.y, destination.z, speed)
 	}
 

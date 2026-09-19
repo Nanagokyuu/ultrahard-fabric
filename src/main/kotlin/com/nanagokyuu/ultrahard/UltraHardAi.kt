@@ -11,7 +11,6 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.Mob
-import net.minecraft.world.entity.monster.Creeper
 import net.minecraft.world.entity.monster.EnderMan
 import net.minecraft.world.entity.monster.Endermite
 import net.minecraft.world.entity.monster.Ravager
@@ -78,16 +77,7 @@ object UltraHardAi {
 	fun tickEndermite(endermite: Endermite): Unit = CombatAiSpecials.tickEndermite(endermite)
 
 	@JvmStatic
-	fun tickCreeperShield(creeper: Creeper): Unit = RangedAi.tickCreeperShield(creeper)
-
-	@JvmStatic
-	fun shouldFlankCreeperShield(creeper: Creeper): Boolean = RangedAi.shouldFlankCreeperShield(creeper)
-
-	@JvmStatic
 	fun retreatSkeleton(skeleton: AbstractSkeleton, target: LivingEntity): Unit = CombatAi.retreatSkeleton(skeleton, target)
-
-	@JvmStatic
-	fun tickCreeper(creeper: Creeper): Unit = RangedAi.tickCreeper(creeper)
 
 	@JvmStatic
 	fun tickWitch(witch: Witch): Unit = RangedAi.tickWitch(witch)
@@ -108,7 +98,13 @@ object UltraHardAi {
 	fun performCloseRangeAttack(witch: Witch, target: LivingEntity): Boolean = RangedAi.performCloseRangeAttack(witch, target)
 
 	@JvmStatic
-	fun tickUndeadShelter(mob: Mob): Unit = WorldAi.tickUndeadShelter(mob)
+	fun registerUndeadShelter(mob: Mob): Unit = WorldAi.registerUndeadShelter(mob)
+
+	@JvmStatic
+	fun shouldPrioritizeNearbyPlayer(mob: Mob): Boolean = WorldAi.shouldPrioritizeNearbyPlayer(mob)
+
+	@JvmStatic
+	fun isNearbyPlayer(mob: Mob, player: LivingEntity?): Boolean = WorldAi.isNearbyPlayer(mob, player)
 
 	@JvmStatic
 	fun placeSpiderWeb(level: ServerLevel, player: ServerPlayer): Unit = WorldAi.placeSpiderWeb(level, player)
