@@ -1,1 +1,11 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"ultrahard:item/nourishing_soup"}}
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "ultrahard:item/nourishing_soup"
+  },
+  "display": {
+    "gui": {
+      "scale": [2, 2, 1]
+    }
+  }
+}

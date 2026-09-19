@@ -36,6 +36,48 @@ processResources {
 	}
 }
 
+def verifyMixinConfiguration = tasks.register('verifyMixinConfiguration') {
+	group = 'verification'
+	description = 'Validates Mixin class names and registration against source files.'
+	def configurationFile = file('src/main/resources/ultrahard.mixins.json')
+	def mixinSources = fileTree('src/main/java/com/nanagokyuu/ultrahard/mixin') {
+		include '**/*.java'
+	}
+	inputs.file(configurationFile)
+	inputs.files(mixinSources)
+	doLast {
+		def configuration = new groovy.json.JsonSlurper().parse(configurationFile)
+		def registered = ['mixins', 'client', 'server'].collectMany { configuration[it] ?: [] }
+		def qualifiedNames = registered.collect { name ->
+			if (!(name ==~ /[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*/)) {
+				throw new GradleException("Mixin must use a dotted class name: ${name}")
+			}
+			"${configuration['package']}.${name}".toString()
+		}
+		if (qualifiedNames.toSet().size() != qualifiedNames.size()) {
+			throw new GradleException('Duplicate Mixin registration')
+		}
+		def sourceNames = mixinSources.files.collect { source ->
+			def packageMatch = source.text =~ /(?m)^package\s+([\w.]+);/
+			if (!packageMatch.find()) throw new GradleException("Missing package: ${source}")
+			"${packageMatch.group(1)}.${source.name.replaceFirst(/\.java$/, '')}".toString()
+		}.toSet()
+		def missing = sourceNames - qualifiedNames.toSet()
+		def unknown = qualifiedNames.toSet() - sourceNames
+		if (!missing.isEmpty() || !unknown.isEmpty()) {
+			throw new GradleException("Mixin registration mismatch; missing=${missing}, unknown=${unknown}")
+		}
+	}
+}
+
+tasks.named('processResources') {
+	dependsOn verifyMixinConfiguration
+}
+
+tasks.named('check') {
+	dependsOn verifyMixinConfiguration
+}
+
 tasks.withType(JavaCompile).configureEach {
 	it.options.release = 25
 }
