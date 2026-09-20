@@ -25,7 +25,7 @@
 ./gradlew build
 ```
 
-产物位于：`build/libs/ultrahard-1.0.0.jar`（不含 `-sources`）。
+产物位于：`build/libs/`，文件名中的版本号以 `gradle.properties` 的 `version` 为准（当前为 `ultrahard-1.0.2.jar`，不含 `-sources`）。
 
 ## Kotlin 代码结构
 
@@ -34,7 +34,8 @@ Kotlin 源码位于 `src/main/kotlin/com/nanagokyuu/ultrahard/`，与 Java 一�
 - `ai/`：目标选择、远程和世界环境 AI；`ai/combat/` 存放近战通用战术与特殊兵种战术。
 - `config/`：配置模型 `UltraHardConfig`、加载与迁移 `UltraHardConfigs`、数值校验 `UltraHardConfigValidation`。
 - `difficulty/`、`enchantment/`、`equipment/`：难度、附魔和装备规则。
-- `events/`：`UltraHardEvents` 注册事件、处理伤害和饥饿；`UltraHardKillStreak` 管理连击；`UltraHardLifesteal` 结算吸血；`UltraHardSleep` 结算睡眠治疗。
+- `events/`：`UltraHardEvents` 提供兼容门面；`events/damage/` 处理伤害；`events/player/` 处理玩家 tick、饥饿和状态迁移；`UltraHardKillStreak` 管理连击；`UltraHardLifesteal` 结算吸血；`UltraHardSleep` 结算睡眠治疗。
+- `bloodmoon/`：血月状态机和 `SavedData` 持久化；`command/`：超困难调试命令。
 - `raid/`：袭击参与者奖励及离线奖励存档。
 - `rules/`：`UltraHardRulesBook` 发放规则书，`UltraHardRulePages` 按当前配置生成分主题书页。
 - `client/`：战斗经验 HUD 和快捷键；`network/`：服务端向客户端同步经验快照。
@@ -58,6 +59,18 @@ Kotlin 源码位于 `src/main/kotlin/com/nanagokyuu/ultrahard/`，与 Java 一�
 ### 游戏内选项菜单
 
 在世界选项中的难度循环按钮里选择 **超困难 / Ultra Hard**。
+
+### 血月调试命令
+
+以下命令需要权限等级 2 / OP：
+
+```text
+/ultrahard bloodmoon start
+/ultrahard bloodmoon stop
+/ultrahard bloodmoon status
+```
+
+`start` 会把主世界时钟推进到下一次血月夜，`stop` 会结束当前调试血月并推进到下一天；血月的进行状态、击杀统计和离线奖励会写入主世界存档，服务器重启后不会丢失。
 
 ## 效果说明（服务端权威）
 

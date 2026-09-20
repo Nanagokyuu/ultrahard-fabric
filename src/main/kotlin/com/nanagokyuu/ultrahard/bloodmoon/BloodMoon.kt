@@ -1,4 +1,4 @@
-package com.nanagokyuu.ultrahard.event
+package com.nanagokyuu.ultrahard.bloodmoon
 
 import com.nanagokyuu.ultrahard.config.UltraHardConfigs
 import com.nanagokyuu.ultrahard.difficulty.UltraHardDifficulties
@@ -39,19 +39,9 @@ object BloodMoon {
 	private const val NIGHT_START = 13_000L
 	private const val NIGHT_END = 23_000L
 
-	private data class State(
-		var bloodMoonDay: Long = Long.MIN_VALUE,
-		var started: Boolean = false,
-		var endedNaturally: Boolean = false,
-		var skipped: Boolean = false,
-		val kills: MutableMap<UUID, Int> = HashMap(),
-	)
-
-	private val states = HashMap<ServerLevel, State>()
+	private val states = HashMap<ServerLevel, BloodMoonSavedState>()
 	/** 只在速率真正变化时写入世界时钟，避免每 tick 重发时钟状态包。 */
 	private val appliedClockRates = HashMap<ServerLevel, Float>()
-	/** 玩家离线时先保存奖励数量，重新加入世界后再发放。 */
-	private val pendingRewards = HashMap<UUID, Int>()
 	private val lastWarningDays = HashSet<Long>()
 	private val undeadIds = listOf(
 		"zombie", "zombie_villager", "husk", "drowned", "skeleton", "stray", "bogged", "wither_skeleton", "phantom",
@@ -72,6 +62,31 @@ object BloodMoon {
 		}
 	}
 
+	/** 将主世界时钟推进到下一次血月夜，供服主快速验证血月玩法。 */
+	fun startDebug(level: ServerLevel) {
+		val server = level.server
+		val currentTime = level.getOverworldClockTime()
+		val currentDay = Math.floorDiv(currentTime, DAY_TICKS)
+		val cycle = UltraHardConfigs.values.bloodMoonCycleDays.toLong()
+		val bloodMoonDay = currentDay + Math.floorMod(-currentDay, cycle)
+		setClockTime(server, level, bloodMoonDay * DAY_TICKS + NIGHT_START)
+		state(level).resetForDay(bloodMoonDay)
+	}
+
+	/** 结束调试血月并把时钟推进到下一天，避免下一刻再次触发奖励结算。 */
+	fun stopDebug(level: ServerLevel) {
+		val server = level.server
+		val time = level.getOverworldClockTime()
+		val day = Math.floorDiv(time, DAY_TICKS)
+		setClockTime(server, level, (day + 1) * DAY_TICKS)
+		val state = state(level)
+		state.started = false
+		state.endedNaturally = true
+		state.skipped = true
+		state.setDirty()
+		resetClockRate(server, level)
+	}
+
 	/** 当前世界时钟是否处于血月夜，用于客户端染红月亮和其它玩法判断。 */
 	@JvmStatic
 	fun isBloodMoon(level: Level): Boolean {
@@ -82,11 +97,14 @@ object BloodMoon {
 		return isBloodMoonDay(day) && timeOfDay in NIGHT_START until NIGHT_END
 	}
 
+	private fun state(level: ServerLevel): BloodMoonSavedState =
+		states.getOrPut(level) { BloodMoonSavedState.get(level) }
+
 	private fun tick(level: ServerLevel, server: MinecraftServer) {
 		val time = level.getOverworldClockTime()
 		val day = Math.floorDiv(time, DAY_TICKS)
 		val timeOfDay = Math.floorMod(time, DAY_TICKS)
-		val state = states.getOrPut(level) { State() }
+		val state = state(level)
 		NightLord.clearFinishedDays(day)
 
 		warnBeforeBloodMoon(level, day, timeOfDay)
@@ -94,23 +112,23 @@ object BloodMoon {
 			// 如果玩家睡过血月，时间会直接跳到下一天；此时 started 仍为 true，
 			// 标记 skipped 后清空状态，保证之前的击杀数不会兑换奖励。
 			if (state.started && !state.endedNaturally) state.skipped = true
-			state.started = false
-			state.bloodMoonDay = Long.MIN_VALUE
+			if (state.started || state.bloodMoonDay != Long.MIN_VALUE) {
+				state.started = false
+				state.bloodMoonDay = Long.MIN_VALUE
+				state.setDirty()
+			}
 			resetClockRate(server, level)
 			return
 		}
 
 		if (state.bloodMoonDay != day) {
-			state.bloodMoonDay = day
-			state.started = false
-			state.endedNaturally = false
-			state.skipped = false
-			state.kills.clear()
+			state.resetForDay(day)
 		}
 
 		if (timeOfDay in NIGHT_START until NIGHT_END) {
 			if (!state.started) {
 				state.started = true
+				state.setDirty()
 				announce(level, "血月升起了！亡灵潮正在逼近。", ChatFormatting.DARK_RED)
 			}
 			setClockRate(server, level, 1.0f / UltraHardConfigs.values.bloodMoonNightMultiplier)
@@ -124,11 +142,13 @@ object BloodMoon {
 			}
 			if (state.started && timeOfDay >= NIGHT_END && !state.endedNaturally) {
 				state.endedNaturally = true
+				state.setDirty()
 				resetClockRate(server, level)
 				finishRewards(level, state)
 				announce(level, "血月结束了。", ChatFormatting.GRAY)
 			} else if (state.started && timeOfDay < NIGHT_START && state.bloodMoonDay == day) {
 				state.skipped = true
+				state.setDirty()
 			}
 		}
 	}
@@ -152,6 +172,12 @@ object BloodMoon {
 		appliedClockRates[level] = rate
 	}
 
+	private fun setClockTime(server: MinecraftServer, level: ServerLevel, time: Long) {
+		val holder = server.registryAccess().lookupOrThrow(Registries.WORLD_CLOCK).getOrThrow(WorldClocks.OVERWORLD)
+		level.clockManager().setTotalTicks(holder, time)
+		appliedClockRates.remove(level)
+	}
+
 	private fun resetClockRate(server: MinecraftServer, level: ServerLevel) {
 		// 速率恢复为 1 后，普通昼夜和睡眠跳夜回到原版速度。
 		setClockRate(server, level, 1.0f)
@@ -172,7 +198,7 @@ object BloodMoon {
 				val y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z)
 				val pos = BlockPos(x, y, z)
 				val id = undeadIds[random.nextInt(undeadIds.size)]
-				val key = ResourceKey.create(Registries.ENTITY_TYPE, com.nanagokyuu.ultrahard.UltraHardMod.id(id))
+				val key = ResourceKey.create(Registries.ENTITY_TYPE, net.minecraft.resources.Identifier.withDefaultNamespace(id))
 				val type = typeRegistry.getOrThrow(key).value()
 				if (canSpawnNear(level, player, pos, type)) type.spawn(level, pos, EntitySpawnReason.EVENT)
 			}
@@ -192,11 +218,12 @@ object BloodMoon {
 		val player = killerEntity as? ServerPlayer
 			?: (killerEntity as? Projectile)?.owner as? ServerPlayer
 			?: return
-		val state = states[level] ?: return
+		val state = state(level)
 		state.kills[player.uuid] = (state.kills[player.uuid] ?: 0) + 1
+		state.setDirty()
 	}
 
-	private fun finishRewards(level: ServerLevel, state: State) {
+	private fun finishRewards(level: ServerLevel, state: BloodMoonSavedState) {
 		// 奖励按玩家独立统计；睡眠跳夜会提前标记 skipped，因此这里直接不发任何奖励。
 		if (state.skipped) return
 		val threshold = UltraHardConfigs.values.bloodMoonKillThreshold
@@ -204,7 +231,8 @@ object BloodMoon {
 			if (kills < threshold) continue
 			val player = level.server.playerList.getPlayer(uuid)
 			if (player == null) {
-				pendingRewards[uuid] = (pendingRewards[uuid] ?: 0) + 1
+				state.pendingRewards[uuid] = (state.pendingRewards[uuid] ?: 0) + 1
+				state.setDirty()
 				continue
 			}
 			giveReward(player, level, kills)
@@ -212,7 +240,9 @@ object BloodMoon {
 	}
 
 	private fun deliverPendingReward(player: ServerPlayer) {
-		val count = pendingRewards.remove(player.uuid) ?: return
+		val state = state(player.level().server.overworld())
+		val count = state.pendingRewards.remove(player.uuid) ?: return
+		state.setDirty()
 		val level = player.level()
 		repeat(count) { giveReward(player, level, UltraHardConfigs.values.bloodMoonKillThreshold) }
 	}

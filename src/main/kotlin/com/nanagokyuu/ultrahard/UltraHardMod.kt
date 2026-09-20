@@ -1,12 +1,13 @@
 package com.nanagokyuu.ultrahard
 
 import com.nanagokyuu.ultrahard.config.UltraHardConfigs
+import com.nanagokyuu.ultrahard.command.UltraHardCommands
 import com.nanagokyuu.ultrahard.difficulty.UltraHardDifficulties
 import com.nanagokyuu.ultrahard.enchantment.UltraHardEnchantments
 import com.nanagokyuu.ultrahard.events.UltraHardEvents
 import com.nanagokyuu.ultrahard.events.UltraHardKillStreak
 import com.nanagokyuu.ultrahard.elite.EliteMob
-import com.nanagokyuu.ultrahard.event.BloodMoon
+import com.nanagokyuu.ultrahard.bloodmoon.BloodMoon
 import com.nanagokyuu.ultrahard.raid.UltraHardRaidRewards
 import com.nanagokyuu.ultrahard.rules.UltraHardRulesBook
 import com.nanagokyuu.ultrahard.network.CombatExperiencePayload
@@ -44,6 +45,7 @@ object UltraHardMod : ModInitializer {
 		EliteMob.register()
 		BloodMoon.register()
 		UltraHardEvents.register()
+		UltraHardCommands.register()
 		ServerPlayerEvents.JOIN.register {
 			UltraHardKillStreak.syncCombatExperience(it)
 			UltraHardRecovery.syncSoupCooldown(it)
