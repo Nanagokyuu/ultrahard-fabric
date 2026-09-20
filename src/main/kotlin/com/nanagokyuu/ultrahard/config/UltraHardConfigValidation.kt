@@ -34,6 +34,7 @@ internal object UltraHardConfigValidation {
 		"playerAttackCapFraction", "playerAttackOverflowMultiplier", "lifestealBaseRatio",
 		"lifestealMaximumRatio", "eighthWaveEnchantedGoldenAppleChance", "armorDamageScaling",
 		"killDamageReductionPerExperience", "killDamageMinimumMultiplier",
+		"eliteSingleChance", "eliteDoubleChance", "eliteTripleChance",
 	)
 
 	fun validate(source: JsonObject, defaults: JsonObject): JsonObject {
@@ -55,7 +56,7 @@ internal object UltraHardConfigValidation {
 				key == "threatMaximum" -> 1.0..1_000.0
 				key.startsWith("threat") || key.startsWith("target") -> 0.0..100.0
 				key.endsWith("Speed") -> 0.01..4.0
-				key.endsWith("Distance") || key.endsWith("Radius") -> 0.0..64.0
+				key.endsWith("Distance") || key.endsWith("Radius") || key.endsWith("RangeBonus") || key.endsWith("ArmorBonus") -> 0.0..64.0
 				else -> 0.0..16.0
 			}
 			val validInteger = integerRange == null || runCatching { value.asBigDecimal.toBigIntegerExact(); true }.getOrDefault(false)

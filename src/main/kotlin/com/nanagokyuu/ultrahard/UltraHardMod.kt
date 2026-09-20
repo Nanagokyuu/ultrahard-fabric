@@ -5,6 +5,7 @@ import com.nanagokyuu.ultrahard.difficulty.UltraHardDifficulties
 import com.nanagokyuu.ultrahard.enchantment.UltraHardEnchantments
 import com.nanagokyuu.ultrahard.events.UltraHardEvents
 import com.nanagokyuu.ultrahard.events.UltraHardKillStreak
+import com.nanagokyuu.ultrahard.elite.EliteMob
 import com.nanagokyuu.ultrahard.raid.UltraHardRaidRewards
 import com.nanagokyuu.ultrahard.rules.UltraHardRulesBook
 import com.nanagokyuu.ultrahard.network.CombatExperiencePayload
@@ -39,6 +40,7 @@ object UltraHardMod : ModInitializer {
 		val ultra = UltraHardDifficulties.ULTRAHARD
 		UltraHardRecoveryItems.register()
 		UltraHardRecovery.register()
+		EliteMob.register()
 		UltraHardEvents.register()
 		ServerPlayerEvents.JOIN.register {
 			UltraHardKillStreak.syncCombatExperience(it)

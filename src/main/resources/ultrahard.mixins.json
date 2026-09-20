@@ -11,6 +11,7 @@
 		"player.PlayerEatMixin",
 		"player.ServerPlayerStateMixin",
 		"ai.MobHardMixin",
+		"ai.EliteMobSpawnMixin",
 		"difficulty.MobArmorSpawnMixin",
 		"ai.ZombieHardMixin",
 		"ai.ZombieBabySpawnMixin",

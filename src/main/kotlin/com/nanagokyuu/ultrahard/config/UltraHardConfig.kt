@@ -75,4 +75,10 @@ data class UltraHardConfig(
 	val undeadShelterSearchRadius: Int = 8,
 	val undeadShelterSearchIntervalTicks: Int = 20,
 	val undeadShelterSpeed: Double = 1.1,
+	val eliteSingleChance: Float = 0.25f,
+	val eliteDoubleChance: Float = 0.05f,
+	val eliteTripleChance: Float = 0.01f,
+	val eliteExperiencePerAffix: Int = 10,
+	val eliteHunterRangeBonus: Double = 8.0,
+	val eliteToughArmorBonus: Double = 4.0,
 )

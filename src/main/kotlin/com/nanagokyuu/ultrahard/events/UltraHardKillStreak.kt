@@ -4,6 +4,7 @@ import com.nanagokyuu.ultrahard.UltraHardPlayerState
 import com.nanagokyuu.ultrahard.config.UltraHardConfigs
 import com.nanagokyuu.ultrahard.difficulty.UltraHardDifficulties
 import com.nanagokyuu.ultrahard.equipment.UltraHardEquipment
+import com.nanagokyuu.ultrahard.elite.EliteMob
 import com.nanagokyuu.ultrahard.network.CombatExperiencePayload
 import java.util.UUID
 import java.util.WeakHashMap
@@ -74,7 +75,7 @@ internal object UltraHardKillStreak {
 		val state = player as UltraHardPlayerState
 		val oldExperience = state.ultrahardGetLifeCombatExperience()
 		val config = UltraHardConfigs.values
-		val gainedExperience = if (isBoss(entity)) 1_000 else ceil((entity as net.minecraft.world.entity.LivingEntity).maxHealth.toDouble()).toInt().coerceIn(0, 100)
+		val gainedExperience = if (isBoss(entity)) 1_000 else ceil((entity as net.minecraft.world.entity.LivingEntity).maxHealth.toDouble()).toInt().coerceIn(0, 100) + EliteMob.bonusExperience(entity)
 		val newExperience = (oldExperience + gainedExperience).coerceAtMost(config.killDamageExperienceCap)
 		state.ultrahardSetLifeCombatExperience(newExperience)
 		syncCombatExperience(player)
