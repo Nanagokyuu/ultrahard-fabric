@@ -24,6 +24,7 @@ import net.minecraft.world.entity.monster.warden.Warden
 import net.minecraft.world.entity.monster.zombie.Zombie
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.core.registries.Registries
 import java.util.Collections
 import java.util.Random
 
@@ -149,12 +150,21 @@ object EliteMob {
 	private fun dropRareReward(mob: Mob) {
 		val level = mob.level() as? ServerLevel ?: return
 		val random = mob.random.nextFloat()
+		// 附魔书的总概率高于附魔金苹果；附魔种类和等级从当前世界注册表随机选择。
 		val reward = when {
-			random < 0.02f -> ItemStack(Items.ENCHANTED_GOLDEN_APPLE)
-			random < 0.10f -> ItemStack(Items.DIAMOND)
+			random < UltraHardConfigs.values.eliteEnchantedGoldenAppleChance -> ItemStack(Items.ENCHANTED_GOLDEN_APPLE)
+		 random < UltraHardConfigs.values.eliteEnchantedGoldenAppleChance + UltraHardConfigs.values.eliteEnchantedBookChance -> randomEnchantedBook(level)
 		else -> return
 		}
-		mob.spawnAtLocation(level, reward)
+		if (reward != null) mob.spawnAtLocation(level, reward)
+	}
+
+	private fun randomEnchantedBook(level: ServerLevel): ItemStack? {
+		val holder = level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getRandom(level.random).orElse(null) ?: return null
+		val enchantment = holder.value()
+		return ItemStack(Items.ENCHANTED_BOOK).also {
+			it.enchant(holder, level.random.nextInt(enchantment.getMinLevel(), enchantment.getMaxLevel() + 1))
+		}
 	}
 
 	private enum class Affix(val id: String, val displayName: String, val color: ChatFormatting) {

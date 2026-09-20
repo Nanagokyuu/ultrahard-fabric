@@ -81,4 +81,12 @@ data class UltraHardConfig(
 	val eliteExperiencePerAffix: Int = 10,
 	val eliteHunterRangeBonus: Double = 8.0,
 	val eliteToughArmorBonus: Double = 4.0,
+	// 血月默认每八个世界日出现一次；奖励和亡灵潮均在服务端结算。
+	val bloodMoonCycleDays: Int = 8,
+	val bloodMoonNightMultiplier: Float = 3.0f,
+	val bloodMoonKillThreshold: Int = 20,
+	val bloodMoonSpawnIntervalTicks: Int = 40,
+	val bloodMoonSpawnPerInterval: Int = 2,
+	val eliteEnchantedBookChance: Float = 0.18f,
+	val eliteEnchantedGoldenAppleChance: Float = 0.03f,
 )

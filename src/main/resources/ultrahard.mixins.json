@@ -49,6 +49,9 @@
 		"accessor.MobSunProtectionAccessor",
 		"world.ServerLevelSleepMixin"
 	],
+	"client": [
+		"client.SkyRendererBloodMoonMixin"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	},

@@ -29,12 +29,17 @@ internal object UltraHardConfigValidation {
 		"targetLockTicks" to 0..1_200,
 		"undeadShelterSearchRadius" to 0..16,
 		"undeadShelterSearchIntervalTicks" to 1..1_200,
+		"bloodMoonCycleDays" to 1..64,
+		"bloodMoonKillThreshold" to 1..1_000_000,
+		"bloodMoonSpawnIntervalTicks" to 1..1_200,
+		"bloodMoonSpawnPerInterval" to 1..32,
 	)
 	private val fractionFields = setOf(
 		"playerAttackCapFraction", "playerAttackOverflowMultiplier", "lifestealBaseRatio",
 		"lifestealMaximumRatio", "eighthWaveEnchantedGoldenAppleChance", "armorDamageScaling",
 		"killDamageReductionPerExperience", "killDamageMinimumMultiplier",
 		"eliteSingleChance", "eliteDoubleChance", "eliteTripleChance",
+		"bloodMoonNightMultiplier", "eliteEnchantedBookChance", "eliteEnchantedGoldenAppleChance",
 	)
 
 	fun validate(source: JsonObject, defaults: JsonObject): JsonObject {
